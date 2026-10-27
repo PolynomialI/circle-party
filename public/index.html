@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Circle Party</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="game" class="hidden"></canvas>
+
+  <div id="ui">
+    <section id="wake" class="screen hidden">
+      <div class="spinner"></div>
+      <p class="big">Waking up the server…</p>
+    </section>
+
+    <section id="home" class="screen hidden">
+      <h1 class="logo"><span class="dot red"></span>Circle Party<span class="dot blue"></span></h1>
+      <label class="field">Nickname
+        <input id="name" maxlength="16" autocomplete="off" spellcheck="false">
+      </label>
+      <div id="colors" class="swatches" role="radiogroup" aria-label="Colour"></div>
+      <div class="card">
+        <div class="row">
+          <button id="create" class="primary">Create room</button>
+        </div>
+        <div class="row">
+          <input id="join-code" maxlength="5" placeholder="CODE" autocomplete="off" spellcheck="false" aria-label="Room code">
+          <button id="join">Join</button>
+        </div>
+      </div>
+      <div class="row">
+        <button class="ghost" id="open-settings">Settings</button>
+      </div>
+    </section>
+
+    <section id="lobby" class="screen hidden">
+      <h2>Room <span id="room-code" class="code"></span></h2>
+      <button id="copy-link" class="ghost">Copy invite link</button>
+      <div class="card">
+        <table id="players" class="list"></table>
+      </div>
+      <div class="card">
+        <label class="setting">Game <select id="game-pick"></select></label>
+        <div id="game-settings"></div>
+      </div>
+      <div class="row card-width">
+        <button id="ready">Ready</button>
+        <button id="start" class="primary">Start</button>
+        <button id="leave">Leave</button>
+      </div>
+    </section>
+
+    <section id="result" class="overlay hidden">
+      <div class="panel">
+        <h2 id="result-title"></h2>
+        <table id="result-table" class="list"></table>
+      </div>
+    </section>
+
+    <section id="pause" class="overlay hidden">
+      <div class="panel">
+        <h2>Menu</h2>
+        <div class="col">
+          <button id="resume" class="primary">Resume</button>
+          <button id="pause-settings">Settings</button>
+          <button id="leave-game">Leave room</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="settings" class="overlay modal hidden">
+      <div class="panel wide">
+        <h2>Settings</h2>
+        <div id="controls"></div>
+        <div class="row">
+          <button id="close-settings" class="primary">Done</button>
+        </div>
+      </div>
+    </section>
+
+    <div id="toast" class="hidden"></div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

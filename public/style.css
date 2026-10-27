@@ -1,0 +1,167 @@
+/* Circle Soccer's UI, flat. Colours come from shared/theme.js as CSS variables (set in main.js). */
+:root { color-scheme: dark; }
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  font-family: var(--font);
+  color: var(--text);
+  background: var(--bg);
+}
+
+#game {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.hidden { display: none !important; }
+
+.screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.logo {
+  font-size: clamp(32px, 7vw, 56px);
+  margin: 0;
+  letter-spacing: -1px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.dot {
+  width: 0.7em;
+  height: 0.7em;
+  border-radius: 50%;
+  display: inline-block;
+  flex: 0 0 auto;
+}
+.dot.red { background: var(--red); }
+.dot.blue { background: var(--blue); }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px 16px;
+  width: min(420px, 100%);
+}
+.card .row + .row { margin-top: 8px; }
+.card-width { width: min(420px, 100%); }
+
+.row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.row > * { flex: 1 1 auto; }
+.col { display: flex; flex-direction: column; gap: 10px; }
+
+.field { display: flex; flex-direction: column; gap: 6px; width: min(420px, 100%); color: var(--muted); font-size: 14px; }
+
+button, select, input {
+  font: inherit;
+  color: var(--text);
+  background: var(--button);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+button { cursor: pointer; font-weight: 600; transition: transform 0.06s, background 0.15s; }
+button:hover { background: var(--button-hover); }
+button:active { transform: translateY(1px); }
+button:disabled { opacity: 0.45; cursor: default; }
+button.primary { background: var(--accent); color: var(--accent-text); border-color: transparent; }
+button.primary:hover { background: var(--accent-hover); }
+button.ghost { background: transparent; }
+button.on { outline: 2px solid var(--ready); outline-offset: -2px; }
+select option { color: #111; }
+input:focus, select:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+#join-code { text-transform: uppercase; letter-spacing: 4px; text-align: center; max-width: 160px; }
+
+.big { font-size: 22px; font-weight: 700; margin: 0; }
+.code { font-family: var(--mono); letter-spacing: 4px; color: var(--accent); }
+
+.spinner {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 5px solid var(--line);
+  border-top-color: var(--accent);
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.swatches { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.swatch {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid;
+}
+.swatch.picked { outline: 2px solid var(--white); outline-offset: 3px; }
+
+.list { width: 100%; border-collapse: collapse; }
+.list td { padding: 7px 4px; border-bottom: 1px solid var(--line); }
+.list tr:last-child td { border-bottom: 0; }
+.list th { color: var(--muted); font-size: 12px; font-weight: 600; text-align: right; padding: 0 4px 6px; }
+.list td:first-child { width: 26px; }
+.list td.num { text-align: right; font-weight: 700; font-family: var(--mono); }
+.list td.tick { width: 26px; text-align: center; color: var(--ready); font-weight: 800; }
+.list tr.me td.name { color: var(--me-name); }
+.list .dot { width: 16px; height: 16px; border: 2px solid; vertical-align: middle; }
+
+.setting { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--muted); }
+.setting + .setting, #game-settings .setting { margin-top: 8px; }
+.setting select { min-width: 150px; }
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--dim);
+  padding: 16px;
+  z-index: 5;
+}
+.overlay.modal { z-index: 10; }
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 20px 22px;
+  width: min(380px, 100%);
+  max-height: 100%;
+  overflow-y: auto;
+}
+.panel.wide { width: min(520px, 100%); }
+.panel h2 { margin-top: 0; }
+.panel h3 { margin: 18px 0 8px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+.panel .row { margin-top: 14px; }
+.list td.key { text-align: right; font-family: var(--mono); color: var(--accent); }
+
+#toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  padding: 10px 16px;
+  border-radius: 10px;
+  z-index: 20;
+  max-width: calc(100% - 32px);
+}

@@ -1,0 +1,15 @@
+# Two free services: the static site serves the page and never sleeps, so it can show
+# "Waking up the server…" while the game server (which sleeps when idle) starts.
+services:
+  - type: web
+    name: circle-party-server
+    runtime: node
+    plan: free
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /healthz
+  - type: web
+    name: circle-party
+    runtime: static
+    buildCommand: echo "nothing to build"
+    staticPublishPath: ./public

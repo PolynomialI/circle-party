@@ -13,7 +13,7 @@ host picks one or more games to play in turn. The room stays together between ga
 | Sky Run | Race the same kind of obstacle course with no killer. |
 | Infection | Survivors with flashlights against fast infected. Anyone tagged turns; the infected score per tag. |
 | Sumo | Knock everyone off the platform with your stick. Your dash is a leap over gaps. |
-| Ricochet Tanks | A new maze each round. Bullets bounce; one hit and you're out. |
+| Ricochet Tanks | A new maze each round. Bullets bounce; one hit and you're out. Crates hold lasers, gatlings, frags and mines. |
 | Bomb Tag | Touch someone to pass the bomb before it blows. |
 | Hex Drop | Tiles fall soon after you step on them. |
 | Paint Grab | Paint the most floor in your colour. |
@@ -21,8 +21,8 @@ host picks one or more games to play in turn. The room stays together between ga
 | Crown Keeper | Keep the crown the longest; touch the holder to steal it. |
 | Spin Cycle | Jump the low bar and duck the high one as the platform shrinks. |
 | Floor is Lava | Get onto a stone before the floor turns to lava. Fewer stones each wave. |
-| Wall Rush | Find the gaps in the walls sweeping down the platform. |
-| Light Trails | Always moving, leaving a wall behind you. Make others crash. |
+| Wall Rush | Find the gaps in the walls sweeping down the platform. Crates hold a punching glove, a spring, a drill and a freeze. |
+| Light Trails | Always moving, leaving a wall (with gaps) behind you. A point for everyone you outlast. Hop, cut, ghost and scramble power-ups; pylon and portal maps; the walls close in. |
 
 Controls for every game are listed in Settings.
 

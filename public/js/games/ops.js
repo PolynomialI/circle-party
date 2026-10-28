@@ -360,25 +360,7 @@ export class Game extends ArenaView {
   // Power-up crates glow through the dark so people can find (and fight over) them.
   drawCrates(v) {
     const ctx = this.ctx;
-    const now = performance.now() / 1000;
-    for (const [id, x, y, type] of v.x[3]) {
-      const def = POWERS[POWER_IDS[type]];
-      const pulse = 0.5 + 0.5 * Math.sin(now * 4 + id);
-      ctx.globalAlpha = 0.18 + 0.12 * pulse;
-      draw.disc(ctx, x, y, 34 + pulse * 8, def.color);
-      ctx.globalAlpha = 0.3;
-      draw.disc(ctx, x, y, 22, def.color);
-      ctx.globalAlpha = 1;
-      const s = 13;
-      ctx.fillStyle = def.color;
-      ctx.fillRect(x - s, y - s, s * 2, s * 2);
-      ctx.strokeStyle = THEME.ink;
-      ctx.lineWidth = 2.5;
-      ctx.strokeRect(x - s, y - s, s * 2, s * 2);
-      ctx.fillStyle = THEME.white;
-      ctx.fillRect(x - s + 5, y - 2, s * 2 - 10, 4);
-      ctx.fillRect(x - 2, y - s + 5, 4, s * 2 - 10);
-    }
+    for (const [id, x, y, type] of v.x[3]) draw.crate(ctx, x, y, POWERS[POWER_IDS[type]].color, id);
     // Lit flares: a red stick with a white spark.
     for (const [x, y] of v.x[4]) {
       draw.held(ctx, x, y, -0.6, -9, 18, 6, POWERS.flare.color);

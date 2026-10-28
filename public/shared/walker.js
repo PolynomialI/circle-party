@@ -32,18 +32,16 @@ export function stepWalker(p, cmd, map, o = WALK, frozen = false) {
   let dashed = false;
   const speed = (o.speed ?? WALK.speed) * (p.spd ?? 1);
   // Games with jumping use Space to jump instead of dash.
-  if (o.jump) {
-    if (cmd.b & 2 && (p.z || 0) <= 0) {
-      p.vz = JUMP.v;
-      p.z = 0.01;
-    }
-    if (p.z > 0) {
-      p.z += p.vz * DT;
-      p.vz -= JUMP.gravity * DT;
-      if (p.z <= 0) {
-        p.z = 0;
-        p.vz = 0;
-      }
+  if (o.jump && cmd.b & 2 && (p.z || 0) <= 0) {
+    p.vz = JUMP.v;
+    p.z = 0.01;
+  }
+  if (p.z > 0) {
+    p.z += p.vz * DT;
+    p.vz -= JUMP.gravity * DT;
+    if (p.z <= 0) {
+      p.z = 0;
+      p.vz = 0;
     }
   }
   if (!o.jump && o.dash !== false && cmd.b & 2 && p.dashCd <= 0) {

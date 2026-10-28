@@ -137,6 +137,50 @@ export function hazard(ctx, x, y, w, h) {
   ctx.restore();
 }
 
+// A small glowing power-up crate (pulsing halo, coloured box, white cross).
+export function crate(ctx, x, y, color, phase = 0) {
+  const pulse = 0.5 + 0.5 * Math.sin((performance.now() / 1000) * 4 + phase);
+  ctx.globalAlpha = 0.18 + 0.12 * pulse;
+  disc(ctx, x, y, 34 + pulse * 8, color);
+  ctx.globalAlpha = 0.3;
+  disc(ctx, x, y, 22, color);
+  ctx.globalAlpha = 1;
+  const s = 13;
+  ctx.fillStyle = color;
+  ctx.fillRect(x - s, y - s, s * 2, s * 2);
+  ctx.strokeStyle = THEME.ink;
+  ctx.lineWidth = 2.5;
+  ctx.strokeRect(x - s, y - s, s * 2, s * 2);
+  ctx.fillStyle = THEME.white;
+  ctx.fillRect(x - s + 5, y - 2, s * 2 - 10, 4);
+  ctx.fillRect(x - 2, y - s + 5, 4, s * 2 - 10);
+}
+
+// A card-coloured HUD panel.
+export function panel(ctx, x, y, w, h) {
+  ctx.fillStyle = THEME.card;
+  roundRect(ctx, x, y, w, h, 12);
+  ctx.fill();
+  ctx.lineWidth = THEME.outline;
+  ctx.strokeStyle = THEME.ink;
+  ctx.stroke();
+}
+
+// The power-up you're holding, bottom left: a crate swatch and its name (and charges, if any).
+export function heldPower(ctx, H, name, color, extra = '') {
+  panel(ctx, 16, H - 58, 200, 42);
+  ctx.fillStyle = color;
+  ctx.fillRect(30, H - 47, 20, 20);
+  ctx.strokeStyle = THEME.ink;
+  ctx.lineWidth = 2.5;
+  ctx.strokeRect(30, H - 47, 20, 20);
+  ctx.fillStyle = THEME.ink;
+  ctx.font = font(700, 16);
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(name.toUpperCase() + extra, 62, H - 36);
+}
+
 // Short effects: expanding rings and paint splats that fade out.
 export class Effects {
   constructor() {

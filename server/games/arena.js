@@ -2,9 +2,12 @@ import { DT, MAX_REWIND } from '../../public/shared/loop.js';
 import { History } from '../history.js';
 import { CommandQueue } from '../commands.js';
 
-// Shared base for round-based games: players, input, rounds, first-to-N, snapshots.
+// Shared base for round-based games: players, input, rounds, scoring, snapshots.
 // A game subclass fills in: newPlayer, setupRound, playerTick, worldTick, roundResult,
 // packPlayer, packWorld, packMe.
+//
+// Scoring is either 'wins' (first to N round wins, capped at 2N + 1 rounds so it always ends)
+// or 'points' (a fixed N rounds; games hand out points, most points wins).
 
 export const ST = { countdown: 0, playing: 1, roundEnd: 2, over: 3 };
 export const PS = { alive: 0, fall: 1, out: 2, wait: 3, dead: 4 }; // wait: joined mid-round
@@ -17,6 +20,7 @@ export class ArenaGame {
     this.rng = rng;
     this.settings = settings;
     this.target = settings.rounds ?? 1;
+    this.scoring = 'wins';
     this.players = new Map();
     this.nextIdx = 0;
     this.tick = 0;
@@ -33,7 +37,7 @@ export class ArenaGame {
   }
 
   addPlayer({ id, name, color }) {
-    const p = { id, name, color, idx: this.nextIdx++, wins: 0, score: 0, state: PS.wait, cmds: new CommandQueue(), x: 0, y: 0, aim: 0, r: 16, m: 1 };
+    const p = { id, name, color, idx: this.nextIdx++, wins: 0, points: 0, score: 0, state: PS.wait, cmds: new CommandQueue(), x: 0, y: 0, aim: 0, r: 16, m: 1 };
     this.newPlayer(p);
     this.players.set(id, p);
     return p;
@@ -50,7 +54,16 @@ export class ArenaGame {
   }
 
   init() {
-    return { target: this.target };
+    return { target: this.target, scoring: this.scoring, cap: this.roundCap };
+  }
+
+  get roundCap() {
+    return this.scoring === 'points' ? this.target : this.target * 2 + 1;
+  }
+
+  // What the scoreboard counts for a player: round wins or points.
+  tally(p) {
+    return this.scoring === 'points' ? p.points : p.wins;
   }
 
   input(id, msg) {
@@ -104,16 +117,38 @@ export class ArenaGame {
       const winner = this.roundResult();
       if (winner === undefined) return;
       if (winner) winner.wins++;
-      this.events.push(winner ? { k: 'win', p: winner.idx } : { k: 'draw' });
+      this.events.push(winner ? { k: 'win', p: winner.idx } : { k: this.drawEvent || 'draw' });
       this.roundWinner = winner;
       this.state = ST.roundEnd;
       this.timer = this.roundEndTime;
     } else if (this.state === ST.roundEnd && this.timer <= 0) {
       if (this.players.size === 0) return this.finish(null);
       const w = this.roundWinner && this.players.get(this.roundWinner.id);
-      if (w && w.wins >= this.target) this.finish(w);
+      if (this.scoring === 'wins' && w && w.wins >= this.target) this.finish(w);
+      else if (this.round >= this.roundCap) this.finishByStandings();
       else this.startRound(this.countdown);
     }
+  }
+
+  // End now: whoever leads wins; players tied for the lead all win.
+  finishByStandings() {
+    const list = [...this.players.values()];
+    const best = Math.max(0, ...list.map((p) => this.tally(p)));
+    let top = list.filter((p) => this.tally(p) === best && best > 0);
+    if (top.length > 1) {
+      const bestScore = Math.max(...top.map((p) => p.score));
+      top = top.filter((p) => p.score === bestScore);
+    }
+    this.finish(top.length === 1 ? top[0] : null);
+    if (top.length > 1) {
+      this.result.winnerIds = top.map((p) => p.id);
+      this.result.title = `${top.map((p) => p.name).join(' & ')} tie!`;
+      this.result.team = top[0].color;
+    }
+  }
+
+  forceEnd() {
+    this.finishByStandings();
   }
 
   // Round over when at most one player is left (none, when practising alone).
@@ -134,8 +169,8 @@ export class ArenaGame {
     this.state = ST.over;
     this.events.push({ k: 'over', p: winner ? winner.idx : -1 });
     const standings = [...this.players.values()]
-      .sort((a, b) => b.wins - a.wins || b.score - a.score)
-      .map((p) => ({ id: p.id, name: p.name, color: p.color, score: p.wins }));
+      .sort((a, b) => this.tally(b) - this.tally(a) || b.score - a.score)
+      .map((p) => ({ id: p.id, name: p.name, color: p.color, score: this.tally(p) }));
     this.result = { winnerId: winner ? winner.id : null, standings };
   }
 
@@ -161,7 +196,7 @@ export class ArenaGame {
       tm: r2(Math.max(0, this.timer)),
       rt: r2(this.rt),
       rd: this.round,
-      p: [...this.players.values()].map((p) => [p.idx, r1(p.x), r1(p.y), r2(p.aim), p.state, p.wins, ...this.packPlayer(p)]),
+      p: [...this.players.values()].map((p) => [p.idx, r1(p.x), r1(p.y), r2(p.aim), p.state, this.tally(p), ...this.packPlayer(p)]),
       x: this.packWorld(),
       ev: this.events,
     };

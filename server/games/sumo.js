@@ -73,7 +73,7 @@ export class Sumo extends ArenaGame {
     }
     if (frozen) return;
     for (const p of alive) {
-      if (!onPlatform(this.map, p.x, p.y, this.rt)) {
+      if (p.dashT <= 0 && !onPlatform(this.map, p.x, p.y, this.rt)) { // mid-leap you can cross gaps
         p.state = PS.fall;
         p.chg = -1;
         this.events.push({ k: 'fall', p: p.idx });
@@ -86,7 +86,7 @@ export class Sumo extends ArenaGame {
   }
 
   packPlayer(p) {
-    return [p.chg < 0 ? 0 : r2(Math.max(0.01, p.chg / SUMO.chargeTicks)), r2(p.swT), r2(p.fallT), p.dashT > 0 ? 1 : 0];
+    return [p.chg < 0 ? 0 : r2(Math.max(0.01, p.chg / SUMO.chargeTicks)), r2(p.swT), r2(p.fallT), r1(p.z)];
   }
 
   packWorld() {
@@ -96,7 +96,7 @@ export class Sumo extends ArenaGame {
   packMe(p) {
     return {
       x: r2(p.x), y: r2(p.y), vx: r2(p.vx), vy: r2(p.vy), aim: r2(p.aim), dashT: r2(p.dashT), dashCd: r2(p.dashCd),
-      knockT: r2(p.knockT), chg: p.chg, swT: r2(p.swT), swCd: r2(p.swCd), bump: -1,
+      knockT: r2(p.knockT), chg: p.chg, swT: r2(p.swT), swCd: r2(p.swCd), bump: -1, z: r1(p.z),
     };
   }
 }

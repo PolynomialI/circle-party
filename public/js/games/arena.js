@@ -158,31 +158,60 @@ export class ArenaView {
     if (this.acting && this.input && this.input.mouse.seen) draw.crosshair(ctx, this.input.mouse.x, this.input.mouse.y);
   }
 
-  // Scoreboard: one chip per player; players who are out are dimmed.
+  // Scoreboard: what it takes to win, then one chip per player with their wins (or points),
+  // and this round's score underneath for games that have one. Players who are out are dimmed.
   drawChips(v) {
-    const ctx = this.ctx;
     const list = [...v.players].sort((a, b) => a.idx - b.idx);
-    const chipW = 58;
-    const h = 46;
-    const w = list.length * chipW + 14;
+    const label = this.init.scoring === 'points' ? ['ROUND', `${Math.min(v.rd, this.init.target)}/${this.init.target}`] : ['FIRST TO', String(this.init.target)];
+    this.scoreCard(label, list.map((p) => ({
+      color: this.color(p.idx).main,
+      value: this.chipValue(p),
+      sub: this.roundScore ? this.roundScore(p) : null,
+      dim: !(p.state === PS.alive || v.st === ST.countdown),
+    })));
+  }
+
+  scoreCard(label, chips) {
+    const ctx = this.ctx;
+    const chipW = 56;
+    const labelW = 84;
+    const subs = chips.some((c) => c.sub !== null && c.sub !== undefined);
+    const h = subs ? 60 : 48;
+    const w = labelW + chips.length * chipW + 10;
     const x0 = this.stage.w / 2 - w / 2;
-    const y = 12;
+    const y = 10;
     ctx.fillStyle = THEME.card;
     draw.roundRect(ctx, x0, y, w, h, 14);
     ctx.fill();
     ctx.lineWidth = THEME.outline;
     ctx.strokeStyle = THEME.ink;
     ctx.stroke();
-    list.forEach((p, i) => {
-      const c = this.color(p.idx);
-      const cx = x0 + 7 + i * chipW + 18;
-      ctx.globalAlpha = p.state === PS.alive || v.st === ST.countdown ? 1 : 0.35;
-      draw.disc(ctx, cx, y + h / 2, 10, c.main, THEME.ink, 2.5);
+    ctx.fillStyle = THEME.button;
+    draw.roundRect(ctx, x0, y, labelW, h, [14, 0, 0, 14]);
+    ctx.fill();
+    ctx.stroke();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = THEME.accent;
+    ctx.font = draw.font(600, 11);
+    ctx.fillText(label[0], x0 + labelW / 2, y + h / 2 - 10);
+    ctx.font = draw.font(700, 20);
+    ctx.fillText(label[1], x0 + labelW / 2, y + h / 2 + 9);
+    chips.forEach((c, i) => {
+      const cx = x0 + labelW + 8 + i * chipW + 16;
+      const cy = y + (subs ? 22 : h / 2);
+      ctx.globalAlpha = c.dim ? 0.35 : 1;
+      draw.disc(ctx, cx, cy, 10, c.color, THEME.ink, 2.5);
       ctx.fillStyle = THEME.ink;
       ctx.font = draw.font(700, 20);
       ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(String(this.chipValue(p)), cx + 15, y + h / 2 + 1);
+      ctx.fillText(String(c.value), cx + 15, cy + 1);
+      if (subs && c.sub !== null && c.sub !== undefined) {
+        ctx.font = draw.font(600, 12);
+        ctx.fillStyle = THEME.inkSoft;
+        ctx.textAlign = 'center';
+        ctx.fillText(String(c.sub), cx + 10, y + h - 12);
+      }
       ctx.globalAlpha = 1;
     });
   }

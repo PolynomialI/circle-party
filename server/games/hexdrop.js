@@ -1,6 +1,6 @@
 import { DT } from '../../public/shared/loop.js';
 import { WALK, newWalker, stepWalker } from '../../public/shared/walker.js';
-import { HEX, HEX_TILES, HEX_VOID, hexAt, hexCenter } from '../../public/shared/minis.js';
+import { HEX, HEX_TILES, HEX_VOID, hexAt, hexCenter, hexesUnder } from '../../public/shared/minis.js';
 import { collideCircles } from '../physics.js';
 import { ArenaGame, ST, PS, r2 } from './arena.js';
 import { roundsOption } from './walkgame.js';
@@ -26,9 +26,12 @@ export class HexDrop extends ArenaGame {
 
   setupRound(list) {
     this.tiles = new Float32Array(HEX_TILES.length); // 0 solid, > 0 cracking for that long, -1 gone
+    this.life = new Float32Array(HEX_TILES.length).fill(HEX.crack); // how long each tile holds once stepped on
     list.forEach((p, i) => {
       const a = (i / list.length) * Math.PI * 2;
-      const t = HEX_TILES[hexAt(Math.cos(a) * 240, Math.sin(a) * 240)];
+      const ti = hexAt(Math.cos(a) * 240, Math.sin(a) * 240);
+      this.life[ti] = HEX.spawnCrack; // the tile you start on lasts twice as long
+      const t = HEX_TILES[ti];
       const c = hexCenter(t[0], t[1]);
       Object.assign(p, newWalker(c.x, c.y, a + Math.PI), { fallT: 0 });
     });
@@ -58,16 +61,17 @@ export class HexDrop extends ArenaGame {
     for (let i = 0; i < this.tiles.length; i++) {
       if (this.tiles[i] > 0) {
         this.tiles[i] += DT;
-        if (this.tiles[i] >= HEX.crack) this.tiles[i] = -1;
+        if (this.tiles[i] >= this.life[i]) this.tiles[i] = -1;
       }
     }
+    // You only fall once none of your feet are over a solid tile; every tile you touch starts to go.
     for (const p of alive) {
-      const i = hexAt(p.x, p.y);
-      if (i < 0 || this.tiles[i] < 0) {
+      const under = [...hexesUnder(p.x, p.y, p.r * HEX.foot)].filter((i) => this.tiles[i] >= 0);
+      if (!under.length) {
         p.state = PS.fall;
         this.events.push({ k: 'fall', p: p.idx });
-      } else if (this.tiles[i] === 0 && this.state === ST.playing) {
-        this.tiles[i] = 1e-4;
+      } else if (this.state === ST.playing) {
+        for (const i of under) if (this.tiles[i] === 0) this.tiles[i] = 1e-4;
       }
     }
   }
@@ -81,7 +85,8 @@ export class HexDrop extends ArenaGame {
   }
 
   packWorld() {
-    return Array.from(this.tiles, (t) => (t === 0 ? '0' : t > 0 ? '1' : '2')).join('');
+    // 0 solid, 1 starting to crack, 3 about to fall, 2 gone
+    return Array.from(this.tiles, (t, i) => (t === 0 ? '0' : t < 0 ? '2' : t < this.life[i] * 0.55 ? '1' : '3')).join('');
   }
 
   packMe(p) {

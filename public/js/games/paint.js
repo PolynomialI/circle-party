@@ -31,7 +31,7 @@ export class Game extends WalkView {
     return { score: pb[6] };
   }
 
-  chipValue(p) {
+  roundScore(p) {
     return p.score;
   }
 

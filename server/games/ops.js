@@ -21,9 +21,9 @@ export const OPS_INFO = {
 export const INFECTION_INFO = {
   id: 'infection',
   name: 'Infection',
-  blurb: 'Survivors with flashlights against fast infected. Anyone tagged turns.',
+  blurb: 'Survivors with flashlights against fast infected. Tag someone for a point; survive the round for two.',
   settings: [
-    { key: 'rounds', label: 'Rounds to win', options: [[1, '1'], [3, '3'], [5, '5']], def: 3 },
+    { key: 'rounds', label: 'Rounds', options: [[2, '2'], [3, '3'], [5, '5']], def: 3 },
     { key: 'time', label: 'Round time', options: [[60, '1 min'], [90, '1.5 min'], [120, '2 min']], def: 90 },
     mapOption,
   ],
@@ -32,6 +32,7 @@ export const INFECTION_INFO = {
 export const GUN_CODE = ['pistol', 'smg', 'shotgun', 'rifle'];
 const angleDiff = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
 const WALK_OPTS = { speed: OPS.speed, dash: false, radius: OPS.radius };
+const INFECTED_HOLD = 5; // seconds the infected wait at the start of a round
 
 // Top-down shooter in the dark. Each player sees a flashlight cone and a small circle around
 // themselves; the server only sends them enemies inside that, and decides every hit.
@@ -42,6 +43,10 @@ export class Ops extends ArenaGame {
     this.kind = kind;
     this.mode = kind === 'infection' ? 'inf' : opts.settings.mode;
     this.target = kind === 'infection' ? opts.settings.rounds : 1;
+    if (kind === 'infection') {
+      this.scoring = 'points';
+      this.drawEvent = 'roundover'; // rounds have no single winner
+    }
     this.timeLimit = opts.settings.time;
     this.killTarget = this.mode === 'tdm' ? opts.settings.kills * 2 : opts.settings.kills;
     this.mapSetting = opts.settings.map;
@@ -50,7 +55,7 @@ export class Ops extends ArenaGame {
   }
 
   newPlayer(p) {
-    Object.assign(p, newWalker(0, 0), newArmory(), { r: OPS.radius, hp: OPS.hp, kills: 0, deaths: 0, team: 0, inf: false, deadT: 0, stunT: 0, pev: [] });
+    Object.assign(p, newWalker(0, 0), newArmory(), { r: OPS.radius, hp: OPS.hp, kills: 0, deaths: 0, team: 0, inf: false, deadT: 0, stunT: 0, holdT: 0, pev: [] });
   }
 
   addPlayer(info) {
@@ -83,30 +88,44 @@ export class Ops extends ArenaGame {
     this.map = MAPS[this.mapId];
     this.items = this.map.items.map(([x, y, g]) => ({ x, y, g, wait: 0 }));
     this.drops = [];
-    const infected = Math.max(1, Math.round(list.length / 6));
     list.forEach((p, i) => {
       if (this.mode === 'tdm') p.team = i % 2;
       else if (this.mode === 'ffa') p.team = p.idx;
       else p.team = 0;
-      p.inf = this.mode === 'inf' && i < infected && list.length > 1;
+      p.inf = false;
     });
+    if (this.mode === 'inf') {
+      // Everyone takes a turn starting as the infected (in join order), one per six players.
+      const order = [...this.players.values()].sort((a, b) => a.idx - b.idx);
+      const n = Math.max(1, Math.round(list.length / 6));
+      for (let k = 0; k < n && list.length > 1; k++) order[(this.round - 1 + k) % order.length].inf = true;
+      // The infected start together in one corner and are held there a few seconds.
+      const den = Math.floor(this.rng() * this.map.spawns.length);
+      list.filter((p) => p.inf).forEach((p, k) => {
+        this.respawn(p, this.map.spawns[(den + k) % this.map.spawns.length]);
+        p.holdT = INFECTED_HOLD;
+      });
+      for (const p of list) if (!p.inf) this.respawn(p);
+      return;
+    }
     for (const p of list) this.respawn(p);
   }
 
   enemies(a, b) {
-    return a !== b && a.team !== b.team && !(this.mode === 'inf' && a.inf === b.inf);
+    if (a === b) return false;
+    return this.mode === 'inf' ? a.inf !== b.inf : a.team !== b.team;
   }
 
-  // The spawn point farthest from any living enemy.
-  respawn(p) {
+  // At the given spot, or the spawn point farthest from any living enemy.
+  respawn(p, at = null) {
     let spots = this.map.spawns;
     if (this.mode === 'tdm') spots = spots.filter(([x]) => (x < this.map.w / 2) === (p.team === 0));
-    let best = spots[0];
+    let best = at || spots[0];
     let bestD = -1;
-    for (const s of spots) {
+    for (const s of at ? [] : spots) {
       let d = Infinity;
       for (const q of this.players.values()) {
-        if (q.state === PS.alive && this.enemies(p, q)) d = Math.min(d, Math.hypot(q.x - s[0], q.y - s[1]));
+        if (q !== p && q.state === PS.alive && (this.enemies(p, q) || q.inf !== p.inf)) d = Math.min(d, Math.hypot(q.x - s[0], q.y - s[1]));
       }
       d += this.rng() * 50;
       if (d > bestD) {
@@ -114,7 +133,7 @@ export class Ops extends ArenaGame {
         best = s;
       }
     }
-    Object.assign(p, newWalker(best[0], best[1], this.rng() * Math.PI * 2), newArmory(), { hp: OPS.hp, deadT: 0, stunT: 0, state: PS.alive });
+    Object.assign(p, newWalker(best[0], best[1], this.rng() * Math.PI * 2), newArmory(), { hp: OPS.hp, deadT: 0, stunT: 0, holdT: 0, state: PS.alive });
     p.spd = p.inf ? OPS.infectedSpeed : 1;
   }
 
@@ -126,7 +145,8 @@ export class Ops extends ArenaGame {
     }
     if (p.state !== PS.alive) return;
     p.stunT = Math.max(0, p.stunT - DT);
-    const move = p.stunT > 0 ? { ...cmd, mx: 0, my: 0 } : cmd;
+    if (!frozen) p.holdT = Math.max(0, p.holdT - DT);
+    const move = p.stunT > 0 || p.holdT > 0 ? { ...cmd, mx: 0, my: 0 } : cmd;
     stepWalker(p, move, this.map, WALK_OPTS, frozen);
     if (p.inf) return;
     const fired = stepGun(p, cmd, frozen);
@@ -142,13 +162,14 @@ export class Ops extends ArenaGame {
     // Infected tag survivors by touching them.
     const alive = this.alive;
     for (const z of alive) {
-      if (!z.inf || z.stunT > 0) continue;
+      if (!z.inf || z.stunT > 0 || z.holdT > 0) continue;
       for (const s of alive) {
         if (s.inf || Math.hypot(s.x - z.x, s.y - z.y) > s.r + z.r + 2) continue;
         s.inf = true;
         s.spd = OPS.infectedSpeed;
         s.reloadT = 0;
         z.kills++;
+        z.points++;
         this.events.push({ k: 'infect', p: z.idx, v: s.idx });
         this.emitAt(s.x, s.y, { k: 'hit', v: s.idx, x: r1(s.x), y: r1(s.y), a: r2(Math.atan2(s.y - z.y, s.x - z.x)) }, [s, z]);
       }
@@ -157,11 +178,12 @@ export class Ops extends ArenaGame {
 
   roundResult() {
     if (this.mode === 'inf') {
+      // The round ends when everyone is infected or time runs out; survivors still standing score 2.
       const survivors = this.alive.filter((p) => !p.inf);
-      if (this.starters > 1 && survivors.length <= 1) return survivors[0] || null;
-      if (this.starters <= 1 && survivors.length === 0) return null;
-      if (this.rt >= this.timeLimit) return null;
-      return undefined;
+      if (survivors.length && this.rt < this.timeLimit) return undefined;
+      for (const p of survivors) p.points += 2;
+      this.events.push({ k: 'survived', n: survivors.length });
+      return null;
     }
     const list = [...this.players.values()];
     let done = this.rt >= this.timeLimit;
@@ -177,6 +199,15 @@ export class Ops extends ArenaGame {
       if (done) this.finish(this.topKiller());
     }
     return undefined;
+  }
+
+  forceEnd() {
+    if (this.mode === 'inf') return super.forceEnd();
+    if (this.mode === 'tdm') {
+      const score = this.teamScores();
+      return this.finishTeams(score[0] === score[1] ? -1 : score[0] > score[1] ? 0 : 1);
+    }
+    this.finish(this.topKiller());
   }
 
   teamScores() {
@@ -321,7 +352,7 @@ export class Ops extends ArenaGame {
       rt: r2(this.rt),
       rd: this.round,
       x: [this.mapId, active, this.drops.map((d) => [r1(d.x), r1(d.y), GUN_CODE.indexOf(d.g)])],
-      k: [...this.players.values()].map((p) => [p.idx, p.kills, p.deaths, p.team, p.wins, p.state === PS.alive ? 1 : 0, p.inf ? 1 : 0]),
+      k: [...this.players.values()].map((p) => [p.idx, p.kills, p.deaths, p.team, this.tally(p), p.state === PS.alive ? 1 : 0, p.inf ? 1 : 0]),
       ev: this.events,
     };
     this.events = [];
@@ -348,7 +379,7 @@ export class Ops extends ArenaGame {
       if (v.state === PS.alive) {
         snap.me = {
           ack: v.cmds.ack, x: r2(v.x), y: r2(v.y), vx: r2(v.vx), vy: r2(v.vy), aim: r2(v.aim), dashT: 0, dashCd: 0, knockT: 0,
-          spd: v.spd, inf: v.inf, stunT: r2(v.stunT), hp: Math.round(v.hp), slot: v.slot, pm: v.pm, prim: v.prim, mag: v.mag,
+          spd: v.spd, inf: v.inf, stunT: r2(v.stunT), holdT: r2(v.holdT), hp: Math.round(v.hp), slot: v.slot, pm: v.pm, prim: v.prim, mag: v.mag,
           res: v.res, reloadT: r2(v.reloadT), fireCd: r2(v.fireCd), trig: v.trig,
         };
       } else {

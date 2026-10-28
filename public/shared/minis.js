@@ -29,7 +29,7 @@ export const TRACK = {
 };
 
 // ---- Hex Drop: tiles fall away shortly after you step on them ----
-export const HEX = { size: 46, rings: 6, crack: 0.45 };
+export const HEX = { size: 46, rings: 6, crack: 0.495, spawnCrack: 0.99, foot: 0.5 }; // foot: support radius as a share of the body
 export const HEX_TILES = [];
 for (let q = -HEX.rings; q <= HEX.rings; q++) {
   for (let r = Math.max(-HEX.rings, -q - HEX.rings); r <= Math.min(HEX.rings, -q + HEX.rings); r++) HEX_TILES.push([q, r]);
@@ -39,6 +39,19 @@ export const HEX_VOID = { blocks: [], zones: [] }; // no walls: the edge is a dr
 
 export function hexCenter(q, r) {
   return { x: HEX.size * Math.sqrt(3) * (q + r / 2), y: HEX.size * 1.5 * r };
+}
+
+// Tiles under a player's feet: their centre and six points around it.
+export function hexesUnder(x, y, r) {
+  const out = new Set();
+  const i0 = hexAt(x, y);
+  if (i0 >= 0) out.add(i0);
+  for (let k = 0; k < 6; k++) {
+    const a = (k * Math.PI) / 3;
+    const i = hexAt(x + Math.cos(a) * r, y + Math.sin(a) * r);
+    if (i >= 0) out.add(i);
+  }
+  return out;
 }
 
 export function hexAt(x, y) {

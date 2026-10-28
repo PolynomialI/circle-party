@@ -45,3 +45,12 @@ for (const [id, g] of Object.entries(GAMES)) {
     assert.ok(rounds >= 1);
   });
 }
+
+test('crown: the crown starts somewhere reachable on every map', async () => {
+  const { ARENAS } = await import('../public/shared/arenas.js');
+  const { collideBlocks } = await import('../public/shared/world.js');
+  for (const map of Object.keys(ARENAS)) {
+    const game = GAMES.crown.create({ players: [{ id: 'a', name: 'A', color: 0 }], settings: { rounds: 3, time: 45, map } });
+    assert.ok(!collideBlocks({ ...game.crown }, 20, game.map.blocks), map);
+  }
+});

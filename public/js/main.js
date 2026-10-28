@@ -151,10 +151,6 @@ $('copy-link').addEventListener('click', async () => {
     window.prompt('Copy this invite link:', url);
   }
 });
-$('ready').addEventListener('click', () => {
-  const me = app.room && app.room.members.find((m) => m.id === app.myId);
-  if (me) socket.emit('ready', { ready: !me.ready });
-});
 $('start').addEventListener('click', () => socket.emit('start'));
 $('leave').addEventListener('click', leaveRoom);
 
@@ -182,52 +178,62 @@ function renderLobby(room) {
   const table = $('players');
   table.replaceChildren();
   const head = document.createElement('tr');
-  head.append(document.createElement('th'), document.createElement('th'), document.createElement('th'), Object.assign(document.createElement('th'), { textContent: 'Points' }));
+  head.append(document.createElement('th'), document.createElement('th'), Object.assign(document.createElement('th'), { textContent: 'Points' }));
   table.appendChild(head);
   for (const m of room.members) {
     const tr = document.createElement('tr');
     if (m.id === app.myId) tr.className = 'me';
-    const host = m.id === room.hostId;
-    tr.append(cell(dot(m.color)), cell(`${host ? '★ ' : ''}${m.name}`, 'name'), cell(m.ready || host ? '✓' : '', 'tick'), cell(String(m.points), 'num'));
+    tr.append(cell(dot(m.color)), cell(`${m.id === room.hostId ? '★ ' : ''}${m.name}`, 'name'), cell(String(m.points), 'num'));
     table.appendChild(tr);
   }
 
+  // Games: the host picks any number; they play in the order picked.
   const pick = $('game-pick');
   pick.replaceChildren(...app.catalog.map((g) => {
     const b = document.createElement('button');
-    b.textContent = g.name;
-    b.className = g.id === room.game ? 'picked' : '';
+    const n = room.playlist.indexOf(g.id);
+    b.className = n >= 0 ? 'picked' : '';
+    b.title = g.blurb;
+    if (n >= 0) b.append(Object.assign(document.createElement('span'), { className: 'order', textContent: String(n + 1) }));
+    b.append(g.name);
     b.disabled = !isHost || !inLobby;
     b.addEventListener('click', () => socket.emit('pick', { game: g.id }));
     return b;
   }));
-  const picked = app.catalog.find((g) => g.id === room.game);
-  $('game-blurb').textContent = picked ? picked.blurb : '';
 
+  // Settings for each picked game.
   const box = $('game-settings');
   box.replaceChildren();
-  const info = app.catalog.find((g) => g.id === room.game);
-  for (const s of info ? info.settings : []) {
-    const sel = document.createElement('select');
-    sel.append(...s.options.map(([value, label]) => new Option(label, String(value))));
-    sel.value = String(room.settings[s.key]);
-    sel.disabled = !isHost || !inLobby;
-    sel.addEventListener('change', () => {
-      const opt = s.options.find(([value]) => String(value) === sel.value);
-      if (opt) socket.emit('set', { key: s.key, value: opt[0] });
-    });
-    const label = document.createElement('label');
-    label.className = 'setting';
-    label.append(s.label, sel);
-    box.appendChild(label);
+  for (const id of room.playlist) {
+    const info = app.catalog.find((g) => g.id === id);
+    if (!info) continue;
+    const section = document.createElement('div');
+    section.className = 'game-setup';
+    const h = document.createElement('h3');
+    h.textContent = info.name;
+    const blurb = Object.assign(document.createElement('p'), { className: 'blurb', textContent: info.blurb });
+    section.append(h, blurb);
+    for (const s of info.settings) {
+      const sel = document.createElement('select');
+      sel.append(...s.options.map(([value, label]) => new Option(label, String(value))));
+      sel.value = String(room.settings[id][s.key]);
+      sel.disabled = !isHost || !inLobby;
+      sel.addEventListener('change', () => {
+        const opt = s.options.find(([value]) => String(value) === sel.value);
+        if (opt) socket.emit('set', { game: id, key: s.key, value: opt[0] });
+      });
+      const label = document.createElement('label');
+      label.className = 'setting';
+      label.append(s.label, sel);
+      section.appendChild(label);
+    }
+    box.appendChild(section);
   }
 
-  const me = room.members.find((m) => m.id === app.myId);
-  $('ready').classList.toggle('hidden', isHost);
-  $('ready').classList.toggle('on', !!(me && me.ready));
-  $('ready').disabled = !inLobby;
   $('start').classList.toggle('hidden', !isHost);
-  $('start').disabled = !inLobby || room.members.some((m) => m.id !== room.hostId && !m.ready);
+  $('start').disabled = !inLobby;
+  for (const b of document.querySelectorAll('.host-only')) b.classList.toggle('hidden', !isHost);
+  $('result-host').classList.toggle('hidden', !isHost);
 }
 
 // ---- game --------------------------------------------------------------------------------
@@ -241,7 +247,7 @@ function startGame(start) {
   showScreen('game');
 }
 
-function showResult({ result }) {
+function showResult({ result, next }) {
   const winner = result.standings.find((s) => s.id === result.winnerId);
   const title = $('result-title');
   title.replaceChildren();
@@ -256,6 +262,8 @@ function showResult({ result }) {
     tr.append(cell(dot(s.color)), cell(s.name, 'name'), cell(String(s.score), 'num'));
     table.appendChild(tr);
   }
+  $('result-next').textContent = next ? `Up next: ${next}` : '';
+  $('result-skip').classList.toggle('hidden', !next);
   setOverlay('pause', false);
   $('result').classList.remove('hidden');
 }
@@ -340,6 +348,16 @@ $('pause-settings').addEventListener('click', () => setOverlay('settings', true)
 $('close-settings').addEventListener('click', () => setOverlay('settings', false));
 $('resume').addEventListener('click', () => setOverlay('pause', false));
 $('leave-game').addEventListener('click', leaveRoom);
+$('host-end').addEventListener('click', () => {
+  socket.emit('end');
+  setOverlay('pause', false);
+});
+$('host-skip').addEventListener('click', () => {
+  socket.emit('skip');
+  setOverlay('pause', false);
+});
+$('result-skip').addEventListener('click', () => socket.emit('skip'));
+$('result-end').addEventListener('click', () => socket.emit('end'));
 
 window.addEventListener('keydown', (e) => {
   if (e.code !== 'Escape') return;

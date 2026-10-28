@@ -43,12 +43,13 @@ export class Game extends ArenaView {
   }
 
   unpack(pa, pb, t) {
-    return { charge: pb[6], swT: pb[7], fallT: lerp(pa[8], pb[8], t) };
+    return { charge: pb[6], swT: pb[7], fallT: lerp(pa[8], pb[8], t), z: lerp(pa[9], pb[9], t) };
   }
 
   applyMe(me, s) {
     me.charge = s.chg < 0 ? 0 : Math.max(0.01, s.chg / SUMO.chargeTicks);
     me.swT = s.swT;
+    me.z = s.z;
   }
 
   camera(v) {
@@ -97,13 +98,18 @@ export class Game extends ArenaView {
     }
   }
 
-  drawPlayer(p, isMe, r) {
+  drawPlayer(p, isMe) {
     const ctx = this.ctx;
+    const z = p.z || 0;
+    // Mid-leap: a shadow on the floor and the player drawn raised and a little bigger.
+    if (z > 0.5) draw.disc(ctx, p.x + 3, p.y + 5, SUMO.radius * (1 - z / 90), THEME.shadow);
+    const y = p.y - z;
+    const r = SUMO.radius * (1 + z / 100);
     let angle = p.aim + 1.0 + 0.6 * p.charge;
     if (p.swT > 0) angle = p.aim + 1.2 - 2.6 * (1 - p.swT / SUMO.swingTime);
-    draw.held(ctx, p.x, p.y, angle, SUMO.radius - 6, SUMO.stickLength + 6, SUMO.stickWidth + 1, THEME.metal);
-    draw.player(ctx, p.x, p.y, SUMO.radius, this.color(p.idx), p.aim, isMe);
-    if (p.charge > 0) draw.chargeArc(ctx, p.x, p.y, SUMO.radius + 2, p.charge);
+    draw.held(ctx, p.x, y, angle, r - 6, SUMO.stickLength + 6, SUMO.stickWidth + 1, THEME.metal);
+    draw.player(ctx, p.x, y, r, this.color(p.idx), p.aim, isMe);
+    if (p.charge > 0) draw.chargeArc(ctx, p.x, y, r + 2, p.charge);
     if (isMe && this.pred.state) draw.bar(ctx, p.x, p.y + SUMO.radius + 10, 1 - this.pred.state.dashCd / SUMO.dashCooldown);
   }
 
@@ -115,8 +121,10 @@ export class Game extends ArenaView {
     for (const s of map.solids) {
       if (s.t === 'circle') {
         const r = (map.shrink ? shrinkRadius(map, rt) : s.r) - inset;
-        path.moveTo(r, 0);
-        path.arc(0, 0, r, 0, TAU);
+        const cx = s.cx || 0;
+        const cy = s.cy || 0;
+        path.moveTo(cx + r, cy);
+        path.arc(cx, cy, r, 0, TAU);
       } else if (s.t === 'ring') {
         const r0 = s.r0 + inset;
         const r1 = s.r1 - inset;
@@ -133,11 +141,13 @@ export class Game extends ArenaView {
         const a = s.a + spin;
         const c = Math.cos(a);
         const sn = Math.sin(a);
+        const ox = s.cx || 0;
+        const oy = s.cy || 0;
         [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([kx, ky], i) => {
           const x = kx * (s.w / 2 - inset);
           const y = ky * (s.h / 2 - inset);
-          if (i === 0) path.moveTo(x * c - y * sn, x * sn + y * c);
-          else path.lineTo(x * c - y * sn, x * sn + y * c);
+          if (i === 0) path.moveTo(ox + x * c - y * sn, oy + x * sn + y * c);
+          else path.lineTo(ox + x * c - y * sn, oy + x * sn + y * c);
         });
         path.closePath();
       }

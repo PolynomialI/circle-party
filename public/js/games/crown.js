@@ -24,13 +24,14 @@ export class Game extends WalkView {
     return { score: pb[6] };
   }
 
-  chipValue(p) {
+  roundScore(p) {
     return p.score;
   }
 
   drawAbove(v) {
     const h = this.player(v.x[1]);
-    if (h) drawCrown(this.ctx, h.x, h.y - this.radius - 22);
+    if (h && v.x[5]) draw.disc(this.ctx, h.x, h.y, this.radius + 9, null, THEME.white, 3);
+    if (h) drawCrown(this.ctx, h.x, h.y - this.radius - 30);
     else if (v.x[1] < 0) drawCrown(this.ctx, v.x[2], v.x[3], 1.3);
   }
 

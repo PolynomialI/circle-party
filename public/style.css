@@ -148,11 +148,18 @@ h2 { font-weight: 700; margin: 0; }
 .list .dot { width: 18px; height: 18px; border-width: 2.5px; vertical-align: middle; }
 
 .setting { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--ink-soft); font-weight: 600; }
-.setting + .setting, #game-settings .setting { margin-top: 10px; }
+.setting + .setting, #game-settings .setting { margin-top: 8px; }
 .setting select { min-width: 160px; }
 
-.games { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin-bottom: 10px; }
-.games button { padding: 8px 6px; font-size: 14px; }
+.wide-card { width: min(560px, 100%); }
+.games { display: grid; grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); gap: 8px; margin-bottom: 6px; }
+.games button { padding: 8px 6px; font-size: 14px; position: relative; }
+.games .order {
+  position: absolute; top: -9px; left: -7px; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--ink); color: var(--white); font-size: 12px; line-height: 16px; border: 3px solid var(--white);
+}
+.game-setup { border-top: 2px solid var(--seam); margin-top: 12px; padding-top: 8px; }
+.game-setup h3 { margin: 0 0 2px; font-size: 16px; }
 .games button.picked { background: var(--accent); color: var(--ink); }
 .games button:disabled { opacity: 1; }
 .games button:disabled:not(.picked) { opacity: 0.55; }

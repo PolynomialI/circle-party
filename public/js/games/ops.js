@@ -250,6 +250,8 @@ export class Game extends ArenaView {
       this.feed.push({ ...ev, t0: now });
       if (this.feed.length > 5) this.feed.shift();
       if (ev.k === 'infect' && ev.v === this.me) this.banner.show('INFECTED!', INFECTED, 1.6);
+    } else if (ev.k === 'survived') {
+      this.banner.show(ev.n ? `${ev.n} SURVIVED` : 'ALL INFECTED', ev.n ? THEME.white : INFECTED, 2.2);
     }
   }
 
@@ -290,55 +292,22 @@ export class Game extends ArenaView {
     this.flashes = this.flashes.filter((f) => now - f.t0 < 0.07);
   }
 
-  chipValue(p) {
-    const row = this.board.find((k) => k[0] === p.idx);
-    return this.init.kind === 'ops' ? (row ? row[1] : 0) : p.wins;
-  }
-
   // Scores for everyone come from the scoreboard, since we only see some players.
   drawChips(v) {
-    const ctx = this.ctx;
-    const tdm = this.init.mode === 'tdm';
     const rows = [...this.board].sort((a, b) => a[0] - b[0]);
-    const chipW = 58;
-    const timeW = 86;
-    const w = (tdm ? 2 * 80 : rows.length * chipW) + timeW + 14;
-    const x0 = this.stage.w / 2 - w / 2;
-    const y = 12;
-    const h = 46;
-    ctx.fillStyle = THEME.card;
-    draw.roundRect(ctx, x0, y, w, h, 14);
-    ctx.fill();
-    ctx.lineWidth = THEME.outline;
-    ctx.strokeStyle = THEME.ink;
-    ctx.stroke();
-    ctx.font = draw.font(700, 20);
-    ctx.textBaseline = 'middle';
-    const chip = (cx, color, value, dim) => {
-      ctx.globalAlpha = dim ? 0.35 : 1;
-      draw.disc(ctx, cx, y + h / 2, 10, color, THEME.ink, 2.5);
-      ctx.fillStyle = THEME.ink;
-      ctx.textAlign = 'left';
-      ctx.fillText(String(value), cx + 15, y + h / 2 + 1);
-      ctx.globalAlpha = 1;
-    };
-    if (tdm) {
+    if (this.init.kind === 'infection') {
+      this.scoreCard(['ROUND', `${Math.min(v.rd, this.init.target)}/${this.init.target}`], rows.map((r) => ({
+        color: r[6] ? INFECTED : this.color(r[0]).main, value: r[4], dim: !r[5] && v.st !== ST.countdown,
+      })));
+    } else if (this.init.mode === 'tdm') {
       const score = [0, 0];
       for (const r of rows) if (r[3] === 0 || r[3] === 1) score[r[3]] += r[1];
-      chip(x0 + 25, COLORS[0].main, score[0], false);
-      chip(x0 + 105, COLORS[1].main, score[1], false);
+      this.scoreCard(['FIRST TO', String(this.init.killTarget)], [0, 1].map((t) => ({ color: COLORS[t].main, value: score[t] })));
     } else {
-      rows.forEach((r, i) => {
-        const value = this.init.kind === 'ops' ? r[1] : r[4];
-        const color = this.init.kind === 'infection' && r[6] ? INFECTED : this.color(r[0]).main;
-        chip(x0 + 7 + i * chipW + 18, color, value, this.init.kind === 'infection' && !r[5] && v.st !== ST.countdown);
-      });
+      this.scoreCard(['FIRST TO', String(this.init.killTarget)], rows.map((r) => ({ color: this.color(r[0]).main, value: r[1] })));
     }
     const left = Math.max(0, Math.ceil(this.init.time - v.rt));
-    ctx.fillStyle = THEME.ink;
-    ctx.font = draw.font(700, 22);
-    ctx.textAlign = 'right';
-    ctx.fillText(`${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`, x0 + w - 14, y + h / 2 + 1);
+    draw.bigText(this.ctx, `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`, this.stage.w / 2, 88, 22, left <= 10 ? THEME.accent : THEME.white);
   }
 
   drawHud(v) {
@@ -385,6 +354,7 @@ export class Game extends ArenaView {
         }
       }
     }
+    if (s && s.inf && s.holdT > 0) draw.bigText(ctx, `RELEASED IN ${Math.ceil(s.holdT)}`, W / 2, H / 2 - 80, 34, INFECTED);
     if (this.me !== -1 && !s && this.deadT > 0 && this.init.kind === 'ops') {
       draw.bigText(ctx, String(Math.ceil(this.deadT)), W / 2, H / 2, 80, THEME.white);
     }

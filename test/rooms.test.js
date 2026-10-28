@@ -36,15 +36,20 @@ function client(name, color = 0) {
   });
 }
 
-test('create, join, ready, start, finish, back to the lobby with points', async () => {
+test('create, join, start any time, finish, back to the lobby with points', async () => {
   const a = await client('Ann', 2);
   const b = await client('Bob', 2);
   const created = a.onceEvent('room');
   a.emit('create');
   const room = await created;
   assert.equal(room.code.length, 5);
-  const picked = a.onceEvent('room', (r) => r.game === 'sumo');
+  // Swap the default game for Sumo: pick Sumo, then unpick the default.
+  const first = room.playlist[0];
+  let picked = a.onceEvent('room', (r) => r.playlist.includes('sumo'));
   a.emit('pick', { game: 'sumo' });
+  await picked;
+  picked = a.onceEvent('room', (r) => r.playlist.length === 1 && r.playlist[0] === 'sumo');
+  a.emit('pick', { game: first });
   await picked;
 
   const joined = b.onceEvent('room', (r) => r.members.length === 2);
@@ -53,19 +58,14 @@ test('create, join, ready, start, finish, back to the lobby with points', async 
   assert.notEqual(r2.members[0].color, r2.members[1].color, 'colours are unique in a room');
 
   // Only the host changes settings, and only to listed values.
-  b.emit('set', { key: 'rounds', value: 5 });
-  a.emit('set', { key: 'rounds', value: 99 });
-  const set = a.onceEvent('room', (r) => r.settings.rounds === 7);
-  a.emit('set', { key: 'rounds', value: 7 });
+  b.emit('set', { game: 'sumo', key: 'rounds', value: 5 });
+  a.emit('set', { game: 'sumo', key: 'rounds', value: 99 });
+  const set = a.onceEvent('room', (r) => r.settings.sumo.rounds === 7);
+  a.emit('set', { game: 'sumo', key: 'rounds', value: 7 });
   await set;
 
-  a.emit('start');
-  const notice = await a.onceEvent('notice');
-  assert.match(notice.msg, /ready/);
-
-  const ready = a.onceEvent('room', (r) => r.members.every((m) => m.id === r.hostId || m.ready));
-  b.emit('ready', { ready: true });
-  await ready;
+  // A guest can't start; the host can, without anyone readying up.
+  b.emit('start');
   const started = b.onceEvent('gameStart');
   a.emit('start');
   const start = await started;
@@ -86,13 +86,48 @@ test('create, join, ready, start, finish, back to the lobby with points', async 
   assert.equal(end.result.winnerId, winnerId);
   const back = await a.onceEvent('room', (r) => r.phase === 'lobby');
   assert.equal(back.members.find((m) => m.id === winnerId).points, 1);
-  assert.ok(back.members.every((m) => !m.ready));
 
   // The host leaving hands the room to someone else.
   const handed = b.onceEvent('room', (r) => r.members.length === 2);
   a.emit('leave');
   assert.notEqual((await handed).hostId, a.id);
   for (const s of [a, b, c]) s.close();
+});
+
+test('a playlist plays games in order; the host can skip and end', async () => {
+  const a = await client('Host');
+  const created = a.onceEvent('room');
+  a.emit('create');
+  const room = await created;
+  for (const g of ['sumo', 'bombtag']) {
+    const picked = a.onceEvent('room', (r) => r.playlist.includes(g));
+    a.emit('pick', { game: g });
+    await picked;
+  }
+  const order = [room.playlist[0], 'sumo', 'bombtag'];
+  let started = a.onceEvent('gameStart');
+  a.emit('start');
+  assert.equal((await started).game, order[0]);
+
+  // Skip goes straight to the next game.
+  started = a.onceEvent('gameStart');
+  a.emit('skip');
+  assert.equal((await started).game, order[1]);
+
+  // A finished game shows results, then the next one starts by itself.
+  const roomObj = server.rooms.rooms.get(room.code);
+  started = a.onceEvent('gameStart');
+  roomObj.game.forceEnd();
+  const end = await a.onceEvent('gameEnd');
+  assert.equal(end.next, 'Bomb Tag');
+  assert.equal((await started).game, order[2]);
+
+  // End stops the playlist and returns to the lobby after the results.
+  const back = a.onceEvent('room', (r) => r.phase === 'lobby');
+  a.emit('end');
+  await a.onceEvent('gameEnd');
+  await back;
+  a.close();
 });
 
 test('rooms hold at most 8 people and unknown codes are refused', async () => {
@@ -125,7 +160,7 @@ test('message floods are rate limited', async () => {
   await created;
   let rooms = 0;
   a.on('room', () => rooms++);
-  for (let i = 0; i < 300; i++) a.emit('ready', { ready: i % 2 === 0 });
+  for (let i = 0; i < 300; i++) a.emit('pick', { game: i % 2 ? 'sumo' : 'bombtag' });
   await new Promise((r) => setTimeout(r, 300));
   assert.ok(rooms < 100, `${rooms} of 300 got through`);
   a.close();

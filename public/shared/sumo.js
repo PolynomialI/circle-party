@@ -10,9 +10,10 @@ export const SUMO = {
   knockControl: 1.5, // control while sliding after a hit
   knockTime: 0.35,
   chargeSpeedMul: 0.6,
-  dashSpeed: 640,
-  dashTime: 0.14,
-  dashCooldown: 1.6,
+  dashSpeed: 560, // dash is a leap: airborne for dashTime, so it clears gaps
+  dashTime: 0.36,
+  dashCooldown: 1.8,
+  leapHeight: 26,
   dashMassMul: 2.5,
   stickLength: 34,
   stickWidth: 6,
@@ -33,6 +34,11 @@ export const SUMO = {
 };
 
 const TAU = Math.PI * 2;
+
+// A narrow walkway centred on radius r at angle a, running round the circle (across a ring gap).
+function bridge(a, r, len) {
+  return { t: 'rect', w: 34, h: len, a, cx: Math.cos(a) * r, cy: Math.sin(a) * r };
+}
 const ring8 = (r, offset = 0) => Array.from({ length: 8 }, (_, i) => ({ r, a: offset + (i * TAU) / 8 }));
 
 // Shapes are centred on the origin. A point is on the platform if any solid contains it.
@@ -53,8 +59,22 @@ export const MAPS = {
   ring: {
     name: 'Broken Ring',
     view: 440,
-    solids: [{ t: 'ring', r0: 170, r1: 400, gaps: [1, 3, 4, 6].map((k) => (k * Math.PI) / 4), gap: 0.17 }],
+    solids: [
+      { t: 'ring', r0: 170, r1: 400, gaps: [1, 3, 4, 6].map((k) => (k * Math.PI) / 4), gap: 0.17 },
+      // thin bridges across each gap
+      ...[1, 3, 4, 6].map((k) => bridge((k * Math.PI) / 4, 285, 150)),
+    ],
     spawns: ring8(285, Math.PI / 8), // halfway between the gaps
+  },
+  islands: {
+    name: 'Islands',
+    view: 470,
+    solids: [
+      { t: 'circle', r: 150 },
+      ...[0, 1, 2, 3].map((k) => ({ t: 'circle', r: 105, cx: Math.cos(k * Math.PI / 2 + Math.PI / 4) * 330, cy: Math.sin(k * Math.PI / 2 + Math.PI / 4) * 330 })),
+      ...[0, 1, 2, 3].map((k) => ({ t: 'rect', w: 140, h: 30, a: k * Math.PI / 2 + Math.PI / 4, cx: Math.cos(k * Math.PI / 2 + Math.PI / 4) * 185, cy: Math.sin(k * Math.PI / 2 + Math.PI / 4) * 185 })),
+    ],
+    spawns: [0, 1, 2, 3, 0, 1, 2, 3].map((k, i) => ({ r: i < 4 ? 330 : 80, a: k * Math.PI / 2 + Math.PI / 4 + (i < 4 ? 0 : Math.PI / 4) })),
   },
   spin: {
     name: 'Turntable',
@@ -110,7 +130,7 @@ function angleDiff(a, b) {
 export function inSolid(map, s, x, y, rt) {
   if (s.t === 'circle') {
     const r = map.shrink ? shrinkRadius(map, rt) : s.r;
-    return x * x + y * y <= r * r;
+    return (x - (s.cx || 0)) ** 2 + (y - (s.cy || 0)) ** 2 <= r * r;
   }
   if (s.t === 'ring') {
     const d = Math.hypot(x, y);
@@ -120,8 +140,10 @@ export function inSolid(map, s, x, y, rt) {
   }
   // rect, turned by its own angle plus the platform spin
   const a = -(s.a + spinAngle(map, rt));
-  const lx = x * Math.cos(a) - y * Math.sin(a);
-  const ly = x * Math.sin(a) + y * Math.cos(a);
+  const ox = x - (s.cx || 0);
+  const oy = y - (s.cy || 0);
+  const lx = ox * Math.cos(a) - oy * Math.sin(a);
+  const ly = ox * Math.sin(a) + oy * Math.cos(a);
   return Math.abs(lx) <= s.w / 2 && Math.abs(ly) <= s.h / 2;
 }
 
@@ -139,7 +161,7 @@ export function spawnPoint(map, i) {
 }
 
 export function newMover(x, y) {
-  return { x, y, vx: 0, vy: 0, aim: Math.atan2(-y, -x), dashT: 0, dashCd: 0, knockT: 0, chg: -1, swT: 0, swCd: 0, bump: -1 };
+  return { x, y, vx: 0, vy: 0, aim: Math.atan2(-y, -x), dashT: 0, dashCd: 0, knockT: 0, chg: -1, swT: 0, swCd: 0, bump: -1, z: 0 };
 }
 
 // One tick for one player. cmd: { mx, my, a, b } (b bit 1 = swing held, bit 2 = dash).
@@ -191,6 +213,8 @@ export function stepMover(p, cmd, map, rt, frozen) {
 
   p.x += p.vx * DT;
   p.y += p.vy * DT;
+  const f = 1 - p.dashT / SUMO.dashTime;
+  p.z = p.dashT > 0 ? SUMO.leapHeight * 4 * f * (1 - f) : 0;
 
   // A spinning platform carries whoever stands on it.
   if (map.spin && onPlatform(map, p.x, p.y, rt)) {

@@ -62,3 +62,42 @@ test('hits are decided on the server against where the shooter saw the target', 
   g.step();
   assert.ok(g.players.get('b').hp < 100);
 });
+
+function infection(n = 2, rounds = 2) {
+  const players = Array.from({ length: n }, (_, i) => ({ id: `p${i}`, name: `P${i}`, color: i }));
+  const g = new Ops({ players, settings: { rounds, time: 60, map: 'lab' }, rng: () => 0.3 }, 'infection');
+  while (g.state === 0) g.step();
+  return g;
+}
+
+test('infection: no spawn tag, enemies hidden in the dark, a point per tag, fixed rounds', () => {
+  const g = infection(2, 2);
+  const [a, b] = [...g.players.values()];
+  const z = a.inf ? a : b;
+  const s = a.inf ? b : a;
+  assert.ok(Math.hypot(z.x - s.x, z.y - s.y) > 300, 'infected spawn away from survivors');
+  assert.ok(z.holdT > 0, 'infected are held at the start');
+
+  // Out of each other's light: neither is sent to the other.
+  place(g, z.id, 300, 300, Math.PI);
+  place(g, s.id, 520, 300, 0);
+  assert.ok(!sees(g, z.id, s.idx));
+  assert.ok(!sees(g, s.id, z.idx));
+
+  // While held, touching doesn't infect; afterwards it does and scores a point.
+  place(g, s.id, 320, 300, 0);
+  g.step();
+  assert.equal(s.inf, false);
+  z.holdT = 0;
+  g.step();
+  assert.equal(s.inf, true);
+  assert.equal(z.points, 1);
+
+  // Everyone infected ends the round; after the set rounds the game ends.
+  for (let i = 0; i < 60 * 60 && !g.result; i++) {
+    for (const p of g.players.values()) if (p.state === 0 && !p.inf) p.inf = true;
+    g.step();
+  }
+  assert.ok(g.result, 'game ended');
+  assert.equal(g.round, 2);
+});

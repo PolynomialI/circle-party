@@ -56,9 +56,10 @@ export class Game extends ArenaView {
       ctx.lineWidth = THEME.outline;
       ctx.strokeStyle = THEME.ink;
       ctx.stroke();
-      const shake = tiles[i] === '1' ? Math.sin(now / 25 + i) * 2 : 0;
+      const t = tiles[i];
+      const shake = t === '1' ? Math.sin(now / 25 + i) * 1.5 : t === '3' ? Math.sin(now / 18 + i) * 3.5 : 0;
       hexPath(ctx, c.x + shake, c.y, s);
-      ctx.fillStyle = tiles[i] === '1' ? THEME.accent : (q - r) % 3 === 0 ? THEME.floorAlt : THEME.floor;
+      ctx.fillStyle = t === '1' ? THEME.accent : t === '3' ? THEME.danger : (q - r) % 3 === 0 ? THEME.floorAlt : THEME.floor;
       ctx.fill();
       ctx.stroke();
     });

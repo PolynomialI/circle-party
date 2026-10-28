@@ -1,4 +1,5 @@
 import { DT } from '../../public/shared/loop.js';
+import { collideBlocks } from '../../public/shared/world.js';
 import { PS, r1 } from './arena.js';
 import { WalkGame, arenaOption, roundsOption } from './walkgame.js';
 
@@ -22,7 +23,18 @@ export class Crown extends WalkGame {
     for (const p of list) p.score = 0;
     this.holder = null;
     this.stealCd = 0;
-    this.crown = { x: this.map.w / 2, y: this.map.h / 2 };
+    this.crown = this.clearSpot(this.map.w / 2, this.map.h / 2);
+  }
+
+  // The nearest point to (x, y) that isn't inside or touching a block.
+  clearSpot(x, y) {
+    for (let r = 0; r < 600; r += 20) {
+      for (let a = 0; a < Math.PI * 2; a += r ? 20 / r : 7) {
+        const p = { x: x + Math.cos(a) * r, y: y + Math.sin(a) * r };
+        if (!collideBlocks({ ...p }, 30, this.map.blocks)) return p;
+      }
+    }
+    return { x, y };
   }
 
   onMove(p) {
@@ -46,7 +58,7 @@ export class Crown extends WalkGame {
         if (q !== this.holder && this.gap(q, this.holder) <= 2) {
           this.events.push({ k: 'steal', p: q.idx, v: this.holder.idx });
           this.holder = q;
-          this.stealCd = 0.8;
+          this.stealCd = 1.2; // a fresh holder can't be robbed straight back
           break;
         }
       }
@@ -66,6 +78,6 @@ export class Crown extends WalkGame {
   }
 
   world() {
-    return [this.holder ? this.holder.idx : -1, r1(this.crown.x), r1(this.crown.y), this.timeLeft(this.time)];
+    return [this.holder ? this.holder.idx : -1, r1(this.crown.x), r1(this.crown.y), this.timeLeft(this.time), this.stealCd > 0 ? 1 : 0];
   }
 }

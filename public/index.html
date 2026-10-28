@@ -44,13 +44,11 @@
       <div class="card">
         <table id="players" class="list"></table>
       </div>
-      <div class="card">
+      <div class="card wide-card">
         <div id="game-pick" class="games"></div>
-        <p id="game-blurb" class="blurb"></p>
         <div id="game-settings"></div>
       </div>
       <div class="row card-width">
-        <button id="ready">Ready</button>
         <button id="start" class="primary">Start</button>
         <button id="leave">Leave</button>
       </div>
@@ -60,6 +58,11 @@
       <div class="panel">
         <h2 id="result-title"></h2>
         <table id="result-table" class="list"></table>
+        <p id="result-next" class="blurb"></p>
+        <div id="result-host" class="row hidden">
+          <button id="result-skip" class="primary">Next now</button>
+          <button id="result-end">Back to lobby</button>
+        </div>
       </div>
     </section>
 
@@ -69,6 +72,8 @@
         <div class="col">
           <button id="resume" class="primary">Resume</button>
           <button id="pause-settings">Settings</button>
+          <button id="host-skip" class="host-only">Skip to next game</button>
+          <button id="host-end" class="host-only">End game</button>
           <button id="leave-game">Leave room</button>
         </div>
       </div>

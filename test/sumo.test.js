@@ -138,3 +138,24 @@ test('commands are validated', () => {
   g.step();
   assert.ok(p.vx > 0);
 });
+
+test('a dash is a leap: you cross gaps in the air and only fall if you land off the platform', () => {
+  const g = newGame(2, { rounds: 3, map: 'ring' });
+  park(g, 'p1', 0, 285);
+  const p = park(g, 'p0', 180, 0); // inner edge of the ring, facing the hole
+  send(g, 'p0', { mx: -1, b: 2 }); // leap towards the middle
+  for (let i = 0; i < 18; i++) {
+    send(g, 'p0', { mx: -1 });
+    assert.equal(p.state, 0, `still flying at tick ${i}`);
+  }
+  send(g, 'p0', { mx: -1 }, 10);
+  assert.notEqual(p.state, 0, 'landed in the hole');
+});
+
+test('ring bridges connect the pieces', () => {
+  const ring = MAPS.ring;
+  for (const k of [1, 3, 4, 6]) {
+    const a = (k * Math.PI) / 4;
+    assert.ok(onPlatform(ring, Math.cos(a) * 285, Math.sin(a) * 285, 0), `bridge at gap ${k}`);
+  }
+});

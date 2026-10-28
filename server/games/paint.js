@@ -1,11 +1,12 @@
-import { WalkGame, arenaOption, roundsOption } from './walkgame.js';
+import { WalkGame, arenaOption, roundsOption, powersOption } from './walkgame.js';
+import { WALK_POWERS } from '../../public/shared/walkpowers.js';
 import { timeOption } from './crown.js';
 
 export const PAINT_INFO = {
   id: 'paint',
   name: 'Paint Grab',
   blurb: 'Paint the floor your colour by walking on it. Dash to cut through.',
-  settings: [roundsOption(3), timeOption(45), arenaOption],
+  settings: [roundsOption(3), timeOption(45), arenaOption, powersOption],
 };
 
 export const CELL = 40;
@@ -13,7 +14,7 @@ export const CELL = 40;
 // Grid of floor cells: -1 under a block, 0 bare, idx + 1 painted by that player.
 export class Paint extends WalkGame {
   constructor(opts) {
-    super(opts);
+    super(opts, { powers: ['boots', 'glove', 'blink', 'splash'] });
     this.time = opts.settings.time;
     this.startRound(this.firstCountdown);
   }
@@ -43,6 +44,18 @@ export class Paint extends WalkGame {
     for (let r = r0 - rad; r <= r0 + rad; r++) {
       for (let c = c0 - rad; c <= c0 + rad; c++) {
         if (c >= 0 && r >= 0 && c < this.cols && r < this.rows) this.paint(r * this.cols + c, p);
+      }
+    }
+  }
+
+  // Paint Bomb: every cell round you turns your colour.
+  onPower(p, kind) {
+    if (kind !== 'splash') return;
+    const r = WALK_POWERS.splash.r;
+    for (let row = Math.floor((p.y - r) / CELL); row <= Math.floor((p.y + r) / CELL); row++) {
+      for (let c = Math.floor((p.x - r) / CELL); c <= Math.floor((p.x + r) / CELL); c++) {
+        if (c < 0 || row < 0 || c >= this.cols || row >= this.rows) continue;
+        if (Math.hypot((c + 0.5) * CELL - p.x, (row + 0.5) * CELL - p.y) <= r) this.paint(row * this.cols + c, p);
       }
     }
   }

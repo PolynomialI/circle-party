@@ -43,8 +43,10 @@ export class ArenaView {
     draw.player(this.ctx, p.x, p.y, this.radius, COLORS[r.color], p.aim, isMe);
   }
   drawAbove() {}
+  drawOverPlayers() {}
   gameEvent() {}
   drawHud() {}
+  drawHeld() {}
   chipValue(p) {
     return p.wins;
   }
@@ -137,6 +139,7 @@ export class ArenaView {
       const r = this.roster.get(p.idx);
       if (r) this.drawPlayer(p, p.idx === this.me, r);
     }
+    this.drawOverPlayers(v);
     for (const p of v.players) {
       const r = this.roster.get(p.idx);
       if (p.state === PS.alive && r) draw.nameTag(ctx, p.x, p.y, this.radius, r.name);
@@ -146,6 +149,7 @@ export class ArenaView {
     this.stage.screen();
     this.drawChips(v);
     this.drawHud(v);
+    this.drawHeld(v);
     const cx = this.stage.w / 2;
     const cy = this.stage.h / 2 + HUD_H / 2;
     if (v.st === ST.countdown) {

@@ -1,19 +1,19 @@
 import { DT } from '../../public/shared/loop.js';
 import { PS, r1 } from './arena.js';
-import { WalkGame, arenaOption, roundsOption } from './walkgame.js';
+import { WalkGame, arenaOption, roundsOption, powersOption } from './walkgame.js';
 
 export const BOMBTAG_INFO = {
   id: 'bombtag',
   name: 'Bomb Tag',
   blurb: 'Touch someone to pass the bomb. Whoever holds it when it blows is out.',
-  settings: [roundsOption(3), arenaOption],
+  settings: [roundsOption(3), arenaOption, powersOption],
 };
 
 const BLAST = { radius: 160, push: 520 };
 
 export class BombTag extends WalkGame {
   constructor(opts) {
-    super(opts);
+    super(opts, { powers: ['boots', 'bubble', 'glove', 'blink'] });
     this.startRound(this.firstCountdown);
   }
 
@@ -27,8 +27,8 @@ export class BombTag extends WalkGame {
     return 6 + this.rng() * 5;
   }
 
-  onMove(p) {
-    p.spd = p === this.holder ? 1.12 : 1;
+  speedOf(p) {
+    return p === this.holder ? 1.12 : 1;
   }
 
   update(frozen) {
@@ -38,7 +38,7 @@ export class BombTag extends WalkGame {
     if (h.state !== PS.alive || !this.players.has(h.id)) return this.newHolder();
     if (this.passCd <= 0) {
       for (const q of this.alive) {
-        if (q !== h && this.gap(h, q) <= 2) {
+        if (q !== h && !(q.bubbleT > 0) && this.gap(h, q) <= 2) {
           this.holder = q;
           this.passCd = 0.6;
           this.events.push({ k: 'pass', p: h.idx, v: q.idx });

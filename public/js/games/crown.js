@@ -3,7 +3,7 @@ import * as draw from '../draw.js';
 import { WalkView } from './walkview.js';
 
 export const name = 'Crown Keeper';
-export const controls = [['Move', 'W A S D'], ['Dash', 'Space']];
+export const controls = [['Move', 'W A S D'], ['Dash', 'Space'], ['Use power-up', 'Click']];
 
 export function drawCrown(ctx, x, y, s = 1) {
   ctx.beginPath();

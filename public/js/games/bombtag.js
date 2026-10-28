@@ -3,7 +3,7 @@ import * as draw from '../draw.js';
 import { WalkView } from './walkview.js';
 
 export const name = 'Bomb Tag';
-export const controls = [['Move', 'W A S D'], ['Dash', 'Space']];
+export const controls = [['Move', 'W A S D'], ['Dash', 'Space'], ['Use power-up', 'Click']];
 
 export class Game extends WalkView {
   drawAbove(v) {

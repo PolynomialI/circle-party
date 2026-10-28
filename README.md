@@ -24,7 +24,7 @@ host picks one or more games to play in turn. The room stays together between ga
 | Wall Rush | Find the gaps in the walls sweeping down the platform. Crates hold a punching glove, a spring, a drill and a freeze. |
 | Light Trails | Always moving, leaving a wall (with gaps) behind you. A point for everyone you outlast. Hop, cut, ghost and scramble power-ups; pylon and portal maps; the walls close in. |
 
-Controls for every game are listed in Settings.
+Bomb Tag, Paint Grab and Crown Keeper also have power-up crates (rocket boots, bubble shield, punching glove, blink; a paint bomb in Paint Grab). Controls for every game are listed in Settings.
 
 ## Run locally
 

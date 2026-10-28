@@ -2,7 +2,7 @@ import { WalkView } from './walkview.js';
 import { ST } from './arena.js';
 
 export const name = 'Paint Grab';
-export const controls = [['Move', 'W A S D'], ['Dash (wider stripe)', 'Space']];
+export const controls = [['Move', 'W A S D'], ['Dash (wider stripe)', 'Space'], ['Use power-up', 'Click']];
 
 const CELL = 40;
 

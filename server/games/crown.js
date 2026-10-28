@@ -1,7 +1,7 @@
 import { DT } from '../../public/shared/loop.js';
 import { collideBlocks } from '../../public/shared/world.js';
 import { PS, r1 } from './arena.js';
-import { WalkGame, arenaOption, roundsOption } from './walkgame.js';
+import { WalkGame, arenaOption, roundsOption, powersOption } from './walkgame.js';
 
 export const timeOption = (def = 45) => ({ key: 'time', label: 'Round time', options: [[30, '30 s'], [45, '45 s'], [60, '1 min'], [90, '1.5 min']], def });
 
@@ -9,12 +9,12 @@ export const CROWN_INFO = {
   id: 'crown',
   name: 'Crown Keeper',
   blurb: 'Grab the crown and keep it. Touch whoever has it to steal it.',
-  settings: [roundsOption(3), timeOption(45), arenaOption],
+  settings: [roundsOption(3), timeOption(45), arenaOption, powersOption],
 };
 
 export class Crown extends WalkGame {
   constructor(opts) {
-    super(opts);
+    super(opts, { powers: ['boots', 'bubble', 'glove', 'blink'] });
     this.time = opts.settings.time;
     this.startRound(this.firstCountdown);
   }
@@ -37,8 +37,8 @@ export class Crown extends WalkGame {
     return { x, y };
   }
 
-  onMove(p) {
-    p.spd = p === this.holder ? 0.9 : 1;
+  speedOf(p) {
+    return p === this.holder ? 0.9 : 1;
   }
 
   update(frozen) {
@@ -53,7 +53,7 @@ export class Crown extends WalkGame {
           break;
         }
       }
-    } else if (this.stealCd <= 0) {
+    } else if (this.stealCd <= 0 && !(this.holder.bubbleT > 0)) {
       for (const q of this.alive) {
         if (q !== this.holder && this.gap(q, this.holder) <= 2) {
           this.events.push({ k: 'steal', p: q.idx, v: this.holder.idx });

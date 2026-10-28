@@ -2,7 +2,7 @@ import { THEME } from '../../shared/theme.js';
 import { WALK, stepWalker } from '../../shared/walker.js';
 import { RUSH, RUSH_SIDES, rushBlocks } from '../../shared/minis.js';
 import * as draw from '../draw.js';
-import { drawBlocks } from '../world-draw.js';
+import { drawBlocks, drawMark } from '../world-draw.js';
 import { ArenaView, ST, PS, HUD_H, lerp } from './arena.js';
 
 export const name = 'Wall Rush';
@@ -63,6 +63,9 @@ export class Game extends ArenaView {
       ctx.lineTo(RUSH.w, y);
     }
     ctx.stroke();
+    for (const x of [300, 600, 900]) for (const y of [220, 520]) drawMark(ctx, { t: 'arrow', x, y, a: Math.PI / 2, s: 46 });
+    drawMark(ctx, { t: 'grate', x: 80, y: 360, w: 40, h: 120 });
+    drawMark(ctx, { t: 'grate', x: RUSH.w - 120, y: 360, w: 40, h: 120 });
     for (const m of [[0, 0], [0, RUSH.h - 14]]) draw.hazard(ctx, m[0], m[1], RUSH.w, 14);
     ctx.lineWidth = THEME.outline;
     ctx.strokeStyle = THEME.ink;

@@ -62,6 +62,15 @@ export class Game extends ArenaView {
       ctx.fillStyle = t === '1' ? THEME.accent : t === '3' ? THEME.danger : (q - r) % 3 === 0 ? THEME.floorAlt : THEME.floor;
       ctx.fill();
       ctx.stroke();
+      // A bevel and a bolt on each tile.
+      hexPath(ctx, c.x + shake, c.y, s - 9);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = t === '0' ? THEME.seam : THEME.ink;
+      ctx.stroke();
+      ctx.lineWidth = THEME.outline;
+      ctx.strokeStyle = THEME.ink;
+      ctx.fillStyle = THEME.seam;
+      ctx.fillRect(c.x + shake - 3, c.y - 3, 6, 6);
     });
   }
 

@@ -48,6 +48,56 @@ function lightPoints(x, y, a0, a1, range, blocks, steps) {
   });
 }
 
+// Each gun has its own simple silhouette, pointing along angle from `from` units out.
+export function drawGun(ctx, x, y, angle, id, from, scale = 1) {
+  const g = GUNS[id];
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.scale(scale, scale);
+  ctx.translate(from / scale, 0);
+  ctx.lineWidth = 2.2;
+  ctx.strokeStyle = THEME.ink;
+  const part = (px, py, w, h, fill = THEME.gun) => {
+    ctx.fillStyle = fill;
+    ctx.fillRect(px, py, w, h);
+    ctx.strokeRect(px, py, w, h);
+  };
+  const L = g.len;
+  const W = g.w;
+  if (id === 'knife') {
+    part(-2, -2.5, 8, 5, THEME.wallSide);
+    ctx.beginPath();
+    ctx.moveTo(6, -3.5);
+    ctx.lineTo(6 + L, 0);
+    ctx.lineTo(6, 3.5);
+    ctx.closePath();
+    ctx.fillStyle = '#e8eef7';
+    ctx.fill();
+    ctx.stroke();
+  } else {
+    if (id === 'smg' || id === 'burst' || id === 'assault') part(L * 0.35, W / 2, 5, W * (id === 'assault' ? 1.2 : 0.9), THEME.metalDark); // magazine
+    if (id === 'assault' || id === 'rifle') part(-6, -W / 2 + 1, 8, W - 2, THEME.crateDark); // stock
+    if (id === 'shotgun') {
+      part(0, -W / 2, L, W / 2);
+      part(0, 0, L, W / 2);
+      part(L * 0.45, -W / 2 - 2, L * 0.25, W + 4, THEME.crateDark); // pump
+    } else {
+      part(0, -W / 2, L, W);
+    }
+    if (id === 'rifle' || id === 'burst') part(L * 0.25, -W / 2 - 4, L * 0.35, 4, THEME.wallSide); // scope
+    if (id === 'revolver') {
+      ctx.fillStyle = THEME.metalDark;
+      ctx.beginPath();
+      ctx.arc(L * 0.3, 0, W * 0.75, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+    if (id === 'pistol' || id === 'revolver') part(1, W / 2, 5, 6, THEME.wallSide); // grip
+  }
+  ctx.restore();
+}
+
 export class Game extends ArenaView {
   constructor(stage, init) {
     super(stage, init);
@@ -208,7 +258,7 @@ export class Game extends ArenaView {
     const me = this.mePos;
     const gunIcon = (x, y, id) => {
       const g = GUNS[id];
-      draw.held(ctx, x, y, -0.5, -g.len / 2 - 4, g.len + 8, g.w + 2);
+      drawGun(ctx, x, y, -0.5, id, -g.len * 0.65, 1.3);
       if (me && Math.hypot(me.x - x, me.y - y) <= OPS.pickupReach) draw.disc(ctx, x, y, 28, null, THEME.accent, 4);
     };
     const ids = v.x[5];
@@ -227,10 +277,7 @@ export class Game extends ArenaView {
     const inf = p.fl & 1;
     const cloaked = isMe ? this.pred.state && this.pred.state.pow === 'cloak' : p.fl & 4;
     if (cloaked) ctx.globalAlpha = 0.45;
-    if (!inf && p.gun >= 0) {
-      const g = GUNS[GUN_CODE[p.gun]];
-      draw.held(ctx, p.x, p.y, p.aim, OPS.radius - 6, g.len + 6, g.w);
-    }
+    if (!inf && p.gun >= 0) drawGun(ctx, p.x, p.y, p.aim, GUN_CODE[p.gun], OPS.radius - 4);
     const color = this.bodyColor(p.idx);
     draw.player(ctx, p.x, p.y, OPS.radius, color, p.aim, isMe, inf ? INFECTED : color.main);
     if (p.fl & 2) draw.disc(ctx, p.x, p.y, OPS.radius + 5, null, THEME.white, 2);
@@ -349,7 +396,7 @@ export class Game extends ArenaView {
       if (!r) continue;
       const mine = d.owner === this.me;
       if (mine) ctx.globalAlpha = 0.5;
-      if (d.gun >= 0) draw.held(ctx, d.x, d.y, d.aim, OPS.radius - 6, GUNS[GUN_CODE[d.gun]].len + 6, GUNS[GUN_CODE[d.gun]].w);
+      if (d.gun >= 0) drawGun(ctx, d.x, d.y, d.aim, GUN_CODE[d.gun], OPS.radius - 4);
       draw.player(ctx, d.x, d.y, OPS.radius, this.bodyColor(d.owner), d.aim, false);
       draw.nameTag(ctx, d.x, d.y, OPS.radius, r.name);
       ctx.globalAlpha = 1;
@@ -452,8 +499,7 @@ export class Game extends ArenaView {
         ctx.fill();
       }
       ctx.globalAlpha = i < level ? 0.35 : 1;
-      const g = GUNS[id];
-      draw.held(ctx, cx - g.len / 2 - 3, y + 19, 0, 0, Math.max(10, g.len * 0.9), Math.max(4, g.w - 2));
+      drawGun(ctx, cx - GUNS[id].len * 0.45, y + 19, 0, id, 0, 0.9);
       ctx.globalAlpha = 1;
     });
   }

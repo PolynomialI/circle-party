@@ -95,9 +95,9 @@ export const TRAIL_MAP = {
   w: TRAILS.w,
   h: TRAILS.h,
   seam: 100,
-  zones: [[40, 40, TRAILS.w - 80, TRAILS.h - 80, 'alt']],
+  zones: [[40, 40, TRAILS.w - 80, TRAILS.h - 80, 'steel']],
   blocks: border(TRAILS.w, TRAILS.h),
-  marks: [{ t: 'ring', x: TRAILS.w / 2, y: TRAILS.h / 2, r: 140, w: 10 }],
+  marks: [{ t: 'emblem', x: TRAILS.w / 2, y: TRAILS.h / 2, r: 150, c: '#b3c2d6', c2: '#c3cfdf' }],
 };
 
 export function stepTrail(p, cmd, frozen) {

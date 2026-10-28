@@ -2,6 +2,7 @@ import { THEME } from '../../shared/theme.js';
 import { SUMO, MAPS, spinAngle, shrinkRadius, stepMover } from '../../shared/sumo.js';
 import { DT } from '../../shared/loop.js';
 import * as draw from '../draw.js';
+import { drawMark } from '../world-draw.js';
 import { ArenaView, ST, PS, HUD_H, lerp } from './arena.js';
 
 export const name = 'Sumo';
@@ -207,8 +208,16 @@ export class Game extends ArenaView {
       }
     }
     const ring = map.solids.find((s) => s.t === 'ring');
-    draw.disc(ctx, 0, 0, ring ? (ring.r0 + ring.r1) / 2 : 80, null, THEME.decal, 10);
-    if (!ring) draw.disc(ctx, 0, 0, 14, THEME.decal);
+    if (ring) {
+      draw.disc(ctx, 0, 0, (ring.r0 + ring.r1) / 2, null, THEME.decal, 10);
+      for (let k = 0; k < 8; k++) drawMark(ctx, { t: 'arrow', x: Math.cos(k * 0.785 + 0.39) * 285, y: Math.sin(k * 0.785 + 0.39) * 285, a: k * 0.785 + 0.39 + Math.PI / 2, s: 28 });
+    } else {
+      ctx.save();
+      ctx.rotate(spinAngle(map, rt));
+      drawMark(ctx, { t: 'emblem', x: 0, y: 0, r: map.shrink ? 90 : 110, c: THEME.decal, c2: THEME.floor });
+      for (const s of map.solids.filter((q) => q.cx !== undefined && q.t === 'circle')) drawMark(ctx, { t: 'hatch', x: s.cx, y: s.cy, r: 30 });
+      ctx.restore();
+    }
     ctx.restore();
   }
 }

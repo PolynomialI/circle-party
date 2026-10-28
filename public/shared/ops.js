@@ -20,21 +20,47 @@ export const OPS = {
   stun: 1.0, // infected hit by a bullet are stunned this long
 };
 
-// reserve -1 means unlimited.
+// reserve -1 means unlimited. burst: shots per trigger pull. melee: hits within reach in front.
 export const GUNS = {
   pistol: { name: 'Pistol', dmg: 26, rate: 0.28, mag: 12, reserve: -1, reload: 1.1, spread: 0.03, pellets: 1, range: 900, auto: false, len: 14, w: 7 },
   smg: { name: 'SMG', dmg: 15, rate: 0.085, mag: 30, reserve: 90, reload: 1.6, spread: 0.09, pellets: 1, range: 700, auto: true, len: 22, w: 8 },
   shotgun: { name: 'Shotgun', dmg: 13, rate: 0.85, mag: 6, reserve: 18, reload: 2.0, spread: 0.2, pellets: 8, range: 420, auto: false, len: 26, w: 9 },
-  rifle: { name: 'Rifle', dmg: 85, rate: 1.2, mag: 5, reserve: 15, reload: 2.2, spread: 0, pellets: 1, range: 1600, auto: false, len: 34, w: 6 },
+  rifle: { name: 'Sniper', dmg: 85, rate: 1.2, mag: 5, reserve: 15, reload: 2.2, spread: 0, pellets: 1, range: 1600, auto: false, len: 34, w: 6 },
+  burst: { name: 'Burst Rifle', dmg: 21, rate: 0.45, mag: 21, reserve: 63, reload: 1.8, spread: 0.035, pellets: 1, range: 1000, auto: false, burst: 3, len: 28, w: 7 },
+  assault: { name: 'Assault Rifle', dmg: 19, rate: 0.11, mag: 25, reserve: 75, reload: 1.9, spread: 0.06, pellets: 1, range: 950, auto: true, len: 30, w: 8 },
+  revolver: { name: 'Revolver', dmg: 55, rate: 0.6, mag: 6, reserve: 24, reload: 2.0, spread: 0.015, pellets: 1, range: 1100, auto: false, len: 18, w: 8 },
+  knife: { name: 'Knife', dmg: 100, rate: 0.45, mag: 1, reserve: -1, reload: 0, spread: 0, pellets: 0, range: 46, auto: false, melee: true, len: 16, w: 5 },
 };
-export const PICKUPS = ['smg', 'shotgun', 'rifle'];
+export const PICKUPS = ['smg', 'shotgun', 'rifle', 'burst', 'assault', 'revolver'];
+export const GUN_IDS = Object.keys(GUNS);
+
+// Gun Game: a kill moves you up the ladder, a death moves you down one. A knife kill wins.
+export const LADDER = ['pistol', 'smg', 'shotgun', 'burst', 'assault', 'revolver', 'rifle', 'knife'];
+
+// Power-ups from glowing crates. Timed ones last `time` seconds; the rest act at once.
+export const POWERS = {
+  flare: { name: 'Flare', color: '#ff8a3d', time: 0, life: 10, radius: 280 }, // lights an area for everyone
+  ricochet: { name: 'Ricochet', color: '#4fd1ff', time: 12 }, // bullets bounce once off walls
+  overcharge: { name: 'Overcharge', color: '#ffd447', time: 15, cone: 1.5, range: 1.4 }, // bigger flashlight
+  cloak: { name: 'Cloak', color: '#b77bff', time: 8, near: 120 }, // unseen unless close or firing
+  radar: { name: 'Radar', color: '#59e07a', time: 0, show: 1.6 }, // a ping of every enemy
+  decoy: { name: 'Decoy', color: '#ff6fb5', time: 0, life: 6, speed: 200 }, // a hologram of you walks off
+};
+export const POWER_IDS = Object.keys(POWERS);
+export const CRATES = { max: 3, every: 12, reach: 30 };
 
 export function newArmory() {
-  return { slot: 0, pm: GUNS.pistol.mag, prim: '', mag: 0, res: 0, reloadT: 0, fireCd: 0, trig: false };
+  return { slot: 0, pm: GUNS.pistol.mag, prim: '', mag: 0, res: 0, reloadT: 0, fireCd: 0, trig: false, bq: 0, bt: 0 };
 }
 
 export function currentGun(p) {
   return p.slot === 1 && p.prim ? p.prim : 'pistol';
+}
+
+// Light cone and reach for a player, bigger with Overcharge.
+export function lightOf(p) {
+  const o = p.pow === 'overcharge' && p.powT > 0;
+  return { cone: OPS.cone * (o ? POWERS.overcharge.cone : 1), range: OPS.range * (o ? POWERS.overcharge.range : 1) };
 }
 
 // Weapon handling for one tick: swap (b & 8), reload (b & 4), fire (b & 1).
@@ -44,37 +70,59 @@ export function stepGun(p, cmd, frozen) {
   const held = (cmd.b & 1) !== 0;
   if (frozen) {
     p.trig = held;
+    p.bq = 0;
     return null;
   }
   if (cmd.b & 8 && p.prim) {
     p.slot = 1 - p.slot;
     p.reloadT = 0;
+    p.bq = 0;
   }
   const id = currentGun(p);
   const g = GUNS[id];
   const pistol = id === 'pistol';
-  const mag = pistol ? p.pm : p.mag;
+  const mag = g.melee ? 1 : pistol ? p.pm : p.mag;
+  const take = () => {
+    if (g.melee) return;
+    if (pistol) p.pm--;
+    else p.mag--;
+  };
   if (p.reloadT > 0) {
     p.reloadT -= DT;
     if (p.reloadT <= 0) {
       p.reloadT = 0;
       if (pistol) p.pm = g.mag;
       else {
-        const take = Math.min(g.mag - p.mag, p.res);
-        p.mag += take;
-        p.res -= take;
+        const add = p.res < 0 ? g.mag - p.mag : Math.min(g.mag - p.mag, p.res);
+        p.mag += add;
+        if (p.res > 0) p.res -= add;
       }
     }
   }
-  const canReload = mag < g.mag && (pistol || p.res > 0);
+  // The rest of a burst follows on its own.
+  if (p.bq > 0) {
+    p.bt -= DT;
+    if (p.bt <= 0 && mag > 0 && p.reloadT <= 0) {
+      take();
+      p.bq--;
+      p.bt = 0.07;
+      p.trig = held;
+      return id;
+    }
+    if (mag <= 0) p.bq = 0;
+  }
+  const canReload = !g.melee && mag < g.mag && (pistol || p.res !== 0);
   if (cmd.b & 4 && p.reloadT <= 0 && canReload) p.reloadT = g.reload;
   let fired = null;
-  if (held && (g.auto || !p.trig) && p.fireCd <= 0 && p.reloadT <= 0) {
+  if (held && (g.auto || !p.trig) && p.fireCd <= 0 && p.reloadT <= 0 && p.bq <= 0) {
     if (mag > 0) {
-      if (pistol) p.pm--;
-      else p.mag--;
+      take();
       p.fireCd = g.rate;
       fired = id;
+      if (g.burst) {
+        p.bq = g.burst - 1;
+        p.bt = 0.07;
+      }
     } else if (canReload) {
       p.reloadT = g.reload;
     }

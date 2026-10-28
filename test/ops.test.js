@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Ops } from '../server/games/ops.js';
+import { rayBlocksHit } from '../public/shared/world.js';
 
 function newGame(mode = 'ffa') {
   const players = [{ id: 'a', name: 'A', color: 0 }, { id: 'b', name: 'B', color: 1 }];
@@ -100,4 +101,69 @@ test('infection: no spawn tag, enemies hidden in the dark, a point per tag, fixe
   }
   assert.ok(g.result, 'game ended');
   assert.equal(g.round, 2);
+});
+
+function gungame() {
+  const players = [{ id: 'a', name: 'A', color: 0 }, { id: 'b', name: 'B', color: 1 }];
+  const g = new Ops({ players, settings: { mode: 'gungame', kills: 10, time: 300, powers: 0, map: 'lab' }, rng: () => 0.5 }, 'ops');
+  while (g.state === 0) g.step();
+  return g;
+}
+
+test('gun game: a kill moves you up the ladder, a death moves you down, a knife kill wins', () => {
+  const g = gungame();
+  const a = g.players.get('a');
+  const b = g.players.get('b');
+  b.level = 2;
+  g.damage(b, a, 999, 0);
+  assert.equal(a.level, 1);
+  assert.equal(a.prim, 'smg');
+  assert.equal(b.level, 1);
+  // Last rung: knife. A stab finishes the game.
+  a.level = 7;
+  g.equipLevel(a);
+  g.respawn(b);
+  place(g, 'a', 300, 300, 0);
+  place(g, 'b', 335, 300);
+  g.input('a', { c: [[1, 0, 0, 0, 1, -1]] });
+  g.step();
+  g.step();
+  assert.ok(g.result, 'game over');
+  assert.equal(g.result.winnerId, 'a');
+});
+
+test('power-ups: cloak hides you, a flare reveals people in its light, ricochet bounces', () => {
+  const g = newGame();
+  const a = place(g, 'a', 300, 300, 0);
+  const b = place(g, 'b', 450, 300);
+  assert.ok(sees(g, 'a', b.idx));
+  Object.assign(b, { pow: 'cloak', powT: 8 });
+  assert.ok(!sees(g, 'a', b.idx), 'cloaked out of reach');
+  place(g, 'b', 380, 300);
+  assert.ok(sees(g, 'a', b.idx), 'cloaked but close');
+  Object.assign(b, { pow: '', powT: 0 });
+
+  place(g, 'b', 200, 480); // behind a, outside the light
+  assert.ok(!sees(g, 'a', b.idx));
+  g.flares.push({ x: 220, y: 460, life: 5 });
+  assert.ok(sees(g, 'a', b.idx), 'lit by the flare');
+  g.flares = [];
+
+  // Ricochet: fire at a wall at an angle and hit someone standing on the bounce path.
+  const aim = -Math.PI * 0.75;
+  place(g, 'a', 200, 300, aim);
+  Object.assign(a, { pow: 'ricochet', powT: 10 });
+  const w = rayBlocksHit(200, 300, Math.cos(aim), Math.sin(aim), 2000, g.map.blocks);
+  const hx = 200 + Math.cos(aim) * w.t;
+  const hy = 300 + Math.sin(aim) * w.t;
+  const dot = Math.cos(aim) * w.nx + Math.sin(aim) * w.ny;
+  const ra = Math.atan2(Math.sin(aim) - 2 * dot * w.ny, Math.cos(aim) - 2 * dot * w.nx);
+  place(g, 'b', hx + Math.cos(ra) * 60, hy + Math.sin(ra) * 60);
+  const before = b.hp;
+  g.fire(a, 'rifle', -1);
+  assert.ok(b.hp < before, 'bounced shot hit');
+  Object.assign(a, { pow: '', powT: 0 });
+  b.hp = 100;
+  g.fire(a, 'rifle', -1);
+  assert.equal(b.hp, 100, 'no bounce without the power-up');
 });

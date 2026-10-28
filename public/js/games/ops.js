@@ -1,11 +1,11 @@
 import { THEME, COLORS } from '../../shared/theme.js';
-import { OPS, GUNS, MAPS, stepGun, currentGun } from '../../shared/ops.js';
+import { OPS, GUNS, GUN_IDS, LADDER, POWERS, POWER_IDS, MAPS, stepGun, currentGun, lightOf } from '../../shared/ops.js';
 import { stepWalker } from '../../shared/walker.js';
-import { rayBlocks } from '../../shared/world.js';
+import { rayBlocks, rayBlocksHit } from '../../shared/world.js';
 import { DT } from '../../shared/loop.js';
 import * as draw from '../draw.js';
 import { drawFloor, drawBlocks } from '../world-draw.js';
-import { ArenaView, ST, HUD_H } from './arena.js';
+import { ArenaView, ST, HUD_H, lerp, lerpAngle } from './arena.js';
 
 export const name = 'Dark Ops';
 export const controls = [
@@ -18,7 +18,7 @@ export const controls = [
 ];
 
 const TAU = Math.PI * 2;
-const GUN_CODE = ['pistol', 'smg', 'shotgun', 'rifle'];
+const GUN_CODE = GUN_IDS;
 const WALK_OPTS = { speed: OPS.speed, dash: false, radius: OPS.radius };
 const INFECTED = '#86b85f';
 
@@ -62,6 +62,9 @@ export class Game extends ArenaView {
     this.board = [];
     this.deadT = 0;
     this.dt = 0;
+    this.blips = [];
+    this.slashes = [];
+    this.decoys = [];
   }
 
   get map() {
@@ -94,12 +97,18 @@ export class Game extends ArenaView {
   applyMe(me, s) {
     me.hp = s.hp;
     me.gun = s.inf ? -1 : GUN_CODE.indexOf(currentGun(s));
-    me.fl = (s.inf ? 1 : 0) | (s.stunT > 0 ? 2 : 0);
+    me.fl = (s.inf ? 1 : 0) | (s.stunT > 0 ? 2 : 0) | (s.pow === 'cloak' ? 4 : 0);
   }
 
   update(s, dt) {
     this.dt = dt;
     super.update(s, dt);
+    // Decoys slide between snapshots like players.
+    const prev = new Map((s.a.d || []).map((d) => [d[0], d]));
+    this.decoys = (s.b.d || []).map((d) => {
+      const a = prev.get(d[0]) || d;
+      return { owner: d[1], x: lerp(a[2], d[2], s.t), y: lerp(a[3], d[3], s.t), aim: lerpAngle(a[4], d[4], s.t), gun: d[5] };
+    });
   }
 
   team(idx) {
@@ -146,18 +155,24 @@ export class Game extends ArenaView {
     this.drawItems(v, map);
     drawBlocks(ctx, map.blocks, view);
     if (this.me === -1) return;
-    let light = null;
+    const light = new Path2D();
     const s = this.pred.state;
     if (this.mePos && s) {
       const { x, y } = this.mePos;
-      light = new Path2D();
+      const { cone, range } = lightOf(s);
       light.moveTo(x, y);
-      for (const [px, py] of lightPoints(x, y, s.aim - OPS.cone, s.aim + OPS.cone, OPS.range, map.blocks, 40)) light.lineTo(px, py);
+      for (const [px, py] of lightPoints(x, y, s.aim - cone, s.aim + cone, range, map.blocks, 48)) light.lineTo(px, py);
       light.closePath();
-      lightPoints(x, y, 0, TAU, OPS.near, map.blocks, 48).forEach(([px, py], i) => (i ? light.lineTo(px, py) : light.moveTo(px, py)));
-      light.closePath();
+      this.addCircleLight(light, x, y, OPS.near, map);
     }
+    // Flares light their area for everyone.
+    for (const [fx, fy] of v.x[4]) this.addCircleLight(light, fx, fy, POWERS.flare.radius, map);
     this.drawDarkness(light);
+  }
+
+  addCircleLight(path, x, y, r, map) {
+    lightPoints(x, y, 0, TAU, r, map.blocks, 56).forEach(([px, py], i) => (i ? path.lineTo(px, py) : path.moveTo(px, py)));
+    path.closePath();
   }
 
   // Everything outside our light is one flat dark colour.
@@ -177,6 +192,7 @@ export class Game extends ArenaView {
     g.fillRect(0, 0, W, H);
     if (light) {
       g.setTransform(ctx.getTransform());
+      g.fillStyle = '#000';
       g.globalCompositeOperation = 'destination-out';
       g.fillStyle = '#000';
       g.fill(light);
@@ -195,17 +211,22 @@ export class Game extends ArenaView {
       draw.held(ctx, x, y, -0.5, -g.len / 2 - 4, g.len + 8, g.w + 2);
       if (me && Math.hypot(me.x - x, me.y - y) <= OPS.pickupReach) draw.disc(ctx, x, y, 28, null, THEME.accent, 4);
     };
-    map.items.forEach(([x, y, id], i) => {
-      draw.disc(ctx, x, y, 24, THEME.seam, THEME.ink, 2.5);
-      draw.disc(ctx, x, y, 15, null, THEME.decal, 4);
-      if (v.x[1] & (1 << i)) gunIcon(x, y, id);
-    });
+    const ids = v.x[5];
+    if (ids.length) {
+      map.items.forEach(([x, y], i) => {
+        draw.disc(ctx, x, y, 24, THEME.seam, THEME.ink, 2.5);
+        draw.disc(ctx, x, y, 15, null, THEME.decal, 4);
+        if (v.x[1] & (1 << i)) gunIcon(x, y, ids[i]);
+      });
+    }
     for (const [x, y, c] of v.x[2]) gunIcon(x, y, GUN_CODE[c]);
   }
 
   drawPlayer(p, isMe) {
     const ctx = this.ctx;
     const inf = p.fl & 1;
+    const cloaked = isMe ? this.pred.state && this.pred.state.pow === 'cloak' : p.fl & 4;
+    if (cloaked) ctx.globalAlpha = 0.45;
     if (!inf && p.gun >= 0) {
       const g = GUNS[GUN_CODE[p.gun]];
       draw.held(ctx, p.x, p.y, p.aim, OPS.radius - 6, g.len + 6, g.w);
@@ -214,35 +235,69 @@ export class Game extends ArenaView {
     draw.player(ctx, p.x, p.y, OPS.radius, color, p.aim, isMe, inf ? INFECTED : color.main);
     if (p.fl & 2) draw.disc(ctx, p.x, p.y, OPS.radius + 5, null, THEME.white, 2);
     if (!isMe && !inf && p.hp < OPS.hp) draw.bar(ctx, p.x, p.y + OPS.radius + 9, p.hp / OPS.hp, THEME.danger);
+    ctx.globalAlpha = 1;
   }
 
-  addShot(x, y, shots, id) {
+  // segs: [[x0, y0, x1, y1], ...] from the shooter outwards (a ricochet adds a second one).
+  addShot(segs, id) {
     const now = performance.now() / 1000;
     const len = OPS.radius + GUNS[id].len;
-    for (const [a, d] of shots) {
-      const dx = Math.cos(a);
-      const dy = Math.sin(a);
-      this.tracers.push({ x: x + dx * len, y: y + dy * len, x2: x + dx * d, y2: y + dy * d, t0: now });
+    let flash = null;
+    const [ox, oy] = segs[0] || [0, 0];
+    for (const [x0, y0, x1, y1] of segs) {
+      const a = Math.atan2(y1 - y0, x1 - x0);
+      // Every pellet starts at the shooter; a ricochet's second stretch starts at the wall.
+      const fromGun = Math.abs(x0 - ox) < 1 && Math.abs(y0 - oy) < 1;
+      const sx = fromGun ? x0 + Math.cos(a) * len : x0;
+      const sy = fromGun ? y0 + Math.sin(a) * len : y0;
+      this.tracers.push({ x: sx, y: sy, x2: x1, y2: y1, t0: now });
+      if (!flash) flash = { x: sx, y: sy, a, t0: now };
     }
-    const a = shots[0][0];
-    this.flashes.push({ x: x + Math.cos(a) * len, y: y + Math.sin(a) * len, a, t0: now });
+    if (flash) this.flashes.push(flash);
   }
 
   // Our own shots show at once; the server still decides what they hit.
   localShot(s, id, map) {
     const g = GUNS[id];
-    const shots = [];
-    for (let i = 0; i < g.pellets; i++) {
-      const a = s.aim + (g.pellets > 1 ? (i / (g.pellets - 1) - 0.5) * 2 * g.spread : 0);
-      shots.push([a, rayBlocks(s.x, s.y, Math.cos(a), Math.sin(a), g.range, map.blocks)]);
+    if (g.melee) {
+      this.slashes.push({ x: s.x, y: s.y, a: s.aim, t0: performance.now() / 1000, idx: this.me });
+      return;
     }
+    const segs = [];
+    const bounces = s.pow === 'ricochet' && s.powT > 0 ? 1 : 0;
     const pos = this.mePos || s;
-    this.addShot(pos.x, pos.y, shots, id);
+    for (let i = 0; i < g.pellets; i++) {
+      let a = s.aim + (g.pellets > 1 ? (i / (g.pellets - 1) - 0.5) * 2 * g.spread : 0);
+      let x = pos.x;
+      let y = pos.y;
+      let left = g.range;
+      for (let b = 0; b <= bounces && left > 0; b++) {
+        const dx = Math.cos(a);
+        const dy = Math.sin(a);
+        const w = rayBlocksHit(x, y, dx, dy, left, map.blocks);
+        segs.push([x, y, x + dx * w.t, y + dy * w.t]);
+        if (w.t >= left) break;
+        x += dx * (w.t - 0.5);
+        y += dy * (w.t - 0.5);
+        left -= w.t;
+        const dot = dx * w.nx + dy * w.ny;
+        a = Math.atan2(dy - 2 * dot * w.ny, dx - 2 * dot * w.nx);
+      }
+    }
+    this.addShot(segs, id);
   }
 
   gameEvent(ev) {
     const now = performance.now() / 1000;
-    if (ev.k === 'shot' && ev.p !== this.me) this.addShot(ev.x, ev.y, ev.s, GUN_CODE[ev.g]);
+    if (ev.k === 'shot' && ev.p !== this.me) this.addShot(ev.s, GUN_CODE[ev.g]);
+    else if (ev.k === 'slash' && ev.p !== this.me) this.slashes.push({ x: ev.x, y: ev.y, a: ev.a, t0: now, idx: ev.p });
+    else if (ev.k === 'radar') for (const [x, y] of ev.pts) this.blips.push({ x, y, t0: now });
+    else if (ev.k === 'power') this.banner.show(POWERS[ev.type].name.toUpperCase(), POWERS[ev.type].color, 1.2);
+    else if (ev.k === 'pop') {
+      this.fx.ring(ev.x, ev.y, POWERS.decoy.color, 8, 40, 0.35, 4);
+      this.fx.splat(ev.x, ev.y, POWERS.decoy.color, 8, Math.random() * 6, 3);
+    } else if (ev.k === 'flare') this.fx.ring(ev.x, ev.y, POWERS.flare.color, 10, POWERS.flare.radius, 0.6, 5);
+    else if (ev.k === 'level' && ev.p === this.me) this.banner.show(GUNS[LADDER[Math.min(ev.l, LADDER.length - 1)]].name.toUpperCase(), THEME.accent, 1.2);
     else if (ev.k === 'hit') {
       this.fx.splat(ev.x, ev.y, this.bodyColor(ev.v).main, 9, ev.a, 8);
       this.fx.ring(ev.x, ev.y, THEME.white, OPS.radius, OPS.radius + 14, 0.2);
@@ -255,9 +310,72 @@ export class Game extends ArenaView {
     }
   }
 
-  drawAbove() {
+  // Power-up crates glow through the dark so people can find (and fight over) them.
+  drawCrates(v) {
     const ctx = this.ctx;
     const now = performance.now() / 1000;
+    for (const [id, x, y, type] of v.x[3]) {
+      const def = POWERS[POWER_IDS[type]];
+      const pulse = 0.5 + 0.5 * Math.sin(now * 4 + id);
+      ctx.globalAlpha = 0.18 + 0.12 * pulse;
+      draw.disc(ctx, x, y, 34 + pulse * 8, def.color);
+      ctx.globalAlpha = 0.3;
+      draw.disc(ctx, x, y, 22, def.color);
+      ctx.globalAlpha = 1;
+      const s = 13;
+      ctx.fillStyle = def.color;
+      ctx.fillRect(x - s, y - s, s * 2, s * 2);
+      ctx.strokeStyle = THEME.ink;
+      ctx.lineWidth = 2.5;
+      ctx.strokeRect(x - s, y - s, s * 2, s * 2);
+      ctx.fillStyle = THEME.white;
+      ctx.fillRect(x - s + 5, y - 2, s * 2 - 10, 4);
+      ctx.fillRect(x - 2, y - s + 5, 4, s * 2 - 10);
+    }
+    // Lit flares: a red stick with a white spark.
+    for (const [x, y] of v.x[4]) {
+      draw.held(ctx, x, y, -0.6, -9, 18, 6, POWERS.flare.color);
+      draw.disc(ctx, x + 6, y - 6, 4 + Math.random() * 2, THEME.white);
+    }
+  }
+
+  drawAbove(v) {
+    const ctx = this.ctx;
+    const now = performance.now() / 1000;
+    this.drawCrates(v);
+    // Decoys look just like their owner.
+    for (const d of this.decoys) {
+      const r = this.roster.get(d.owner);
+      if (!r) continue;
+      const mine = d.owner === this.me;
+      if (mine) ctx.globalAlpha = 0.5;
+      if (d.gun >= 0) draw.held(ctx, d.x, d.y, d.aim, OPS.radius - 6, GUNS[GUN_CODE[d.gun]].len + 6, GUNS[GUN_CODE[d.gun]].w);
+      draw.player(ctx, d.x, d.y, OPS.radius, this.bodyColor(d.owner), d.aim, false);
+      draw.nameTag(ctx, d.x, d.y, OPS.radius, r.name);
+      ctx.globalAlpha = 1;
+    }
+    // Knife swipes.
+    for (const sl of this.slashes) {
+      const k = (now - sl.t0) / 0.15;
+      if (k > 1) continue;
+      ctx.globalAlpha = 1 - k;
+      ctx.lineWidth = 6;
+      ctx.strokeStyle = THEME.white;
+      ctx.beginPath();
+      ctx.arc(sl.x, sl.y, OPS.radius + 26, sl.a - 1 + k * 0.3, sl.a + 1 - (1 - k) * 0.3);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    this.slashes = this.slashes.filter((sl) => now - sl.t0 < 0.15);
+    // Radar blips, shown through the dark for a moment.
+    for (const b of this.blips) {
+      const k = (now - b.t0) / POWERS.radar.show;
+      ctx.globalAlpha = 1 - k;
+      draw.disc(ctx, b.x, b.y, 10, POWERS.radar.color, THEME.ink, 2);
+      draw.disc(ctx, b.x, b.y, 14 + k * 30, null, POWERS.radar.color, 3);
+    }
+    ctx.globalAlpha = 1;
+    this.blips = this.blips.filter((b) => now - b.t0 < POWERS.radar.show);
     for (const t of this.tracers) {
       ctx.globalAlpha = Math.max(0, 1 - (now - t.t0) / 0.09);
       for (const [w, c] of [[5, THEME.ink], [2.5, THEME.accent]]) {
@@ -303,11 +421,41 @@ export class Game extends ArenaView {
       const score = [0, 0];
       for (const r of rows) if (r[3] === 0 || r[3] === 1) score[r[3]] += r[1];
       this.scoreCard(['FIRST TO', String(this.init.killTarget)], [0, 1].map((t) => ({ color: COLORS[t].main, value: score[t] })));
+    } else if (this.init.mode === 'gungame') {
+      this.scoreCard(['GUN GAME', `${LADDER.length} GUNS`], rows.map((r) => ({ color: this.color(r[0]).main, value: r[7] + 1 })));
     } else {
       this.scoreCard(['FIRST TO', String(this.init.killTarget)], rows.map((r) => ({ color: this.color(r[0]).main, value: r[1] })));
     }
     const left = Math.max(0, Math.ceil(this.init.time - v.rt));
     draw.bigText(this.ctx, `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`, this.stage.w / 2, 88, 22, left <= 10 ? THEME.accent : THEME.white);
+  }
+
+  // Gun Game: the ladder of guns along the bottom, with ours highlighted.
+  drawLadder(W, H) {
+    const ctx = this.ctx;
+    const row = this.board.find((k) => k[0] === this.me);
+    const level = row ? row[7] : 0;
+    const w = LADDER.length * 46 + 12;
+    const x0 = W / 2 - w / 2;
+    const y = H - 52;
+    ctx.fillStyle = THEME.card;
+    draw.roundRect(ctx, x0, y, w, 38, 12);
+    ctx.fill();
+    ctx.lineWidth = THEME.outline;
+    ctx.strokeStyle = THEME.ink;
+    ctx.stroke();
+    LADDER.forEach((id, i) => {
+      const cx = x0 + 6 + i * 46 + 23;
+      if (i === level) {
+        ctx.fillStyle = THEME.accent;
+        draw.roundRect(ctx, cx - 21, y + 4, 42, 30, 8);
+        ctx.fill();
+      }
+      ctx.globalAlpha = i < level ? 0.35 : 1;
+      const g = GUNS[id];
+      draw.held(ctx, cx - g.len / 2 - 3, y + 19, 0, 0, Math.max(10, g.len * 0.9), Math.max(4, g.w - 2));
+      ctx.globalAlpha = 1;
+    });
   }
 
   drawHud(v) {
@@ -353,7 +501,22 @@ export class Game extends ArenaView {
           ctx.fillRect(W - 190, H - 22, 168 * (1 - s.reloadT / g.reload), 4);
         }
       }
+      // Active power-up and how long it has left.
+      if (s.pow && s.powT > 0) {
+        const def = POWERS[s.pow];
+        panel(16, H - 98, 220, 32);
+        ctx.fillStyle = def.color;
+        ctx.fillRect(28, H - 87, 196 * (s.powT / def.time), 10);
+        ctx.strokeStyle = THEME.ink;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(28, H - 87, 196, 10);
+        ctx.fillStyle = THEME.ink;
+        ctx.font = draw.font(700, 12);
+        ctx.textAlign = 'left';
+        ctx.fillText(def.name.toUpperCase(), 30, H - 104);
+      }
     }
+    if (this.init.mode === 'gungame') this.drawLadder(W, H);
     if (s && s.inf && s.holdT > 0) draw.bigText(ctx, `RELEASED IN ${Math.ceil(s.holdT)}`, W / 2, H / 2 - 80, 34, INFECTED);
     if (this.me !== -1 && !s && this.deadT > 0 && this.init.kind === 'ops') {
       draw.bigText(ctx, String(Math.ceil(this.deadT)), W / 2, H / 2, 80, THEME.white);

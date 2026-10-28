@@ -14,11 +14,15 @@ const defaults = (info) => Object.fromEntries(info.settings.map((s) => [s.key, s
 
 // Every game survives 90 s of random input from 4 players, a late joiner and a leaver,
 // with snapshots that serialise and stay small.
-for (const [id, g] of Object.entries(GAMES)) {
-  test(`${id}: 90 seconds of random play`, () => {
+const extra = { 'ops (gun game)': ['ops', { mode: 'gungame' }] };
+const runs = [...Object.keys(GAMES).map((id) => [id, id, {}]), ...Object.entries(extra).map(([name, [id, s]]) => [name, id, s])];
+
+for (const [name, id, overrides] of runs) {
+  const g = GAMES[id];
+  test(`${name}: 90 seconds of random play`, () => {
     const rng = seeded(id.length * 7919);
     const players = ['a', 'b', 'c', 'd'].map((p, i) => ({ id: p, name: p.toUpperCase(), color: i }));
-    const game = g.create({ players, settings: defaults(g.info), rng });
+    const game = g.create({ players, settings: { ...defaults(g.info), ...overrides }, rng });
     const seq = { a: 0, b: 0, c: 0, d: 0, e: 0 };
     let maxBytes = 0;
     let rounds = 0;

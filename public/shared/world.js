@@ -103,3 +103,32 @@ export function zoneAt(map, x, y) {
   }
   return null;
 }
+
+// Like rayBlocks, but also returns the outward normal of the wall face hit (for ricochets).
+export function rayBlocksHit(x, y, dx, dy, max, blocks) {
+  let best = max;
+  let nx = 0;
+  let ny = 0;
+  const ix = dx !== 0 ? 1 / dx : Infinity;
+  const iy = dy !== 0 ? 1 / dy : Infinity;
+  for (const [bx, by, bw, bh] of blocks) {
+    const tx1 = (bx - x) * ix;
+    const tx2 = (bx + bw - x) * ix;
+    const ty1 = (by - y) * iy;
+    const ty2 = (by + bh - y) * iy;
+    const txmin = Math.min(tx1, tx2);
+    const tymin = Math.min(ty1, ty2);
+    const tmin = Math.max(txmin, tymin);
+    const tmax = Math.min(Math.max(tx1, tx2), Math.max(ty1, ty2));
+    if (tmax < Math.max(tmin, 0) || tmin < 0 || tmin >= best) continue;
+    best = tmin;
+    if (txmin > tymin) {
+      nx = dx > 0 ? -1 : 1;
+      ny = 0;
+    } else {
+      nx = 0;
+      ny = dy > 0 ? -1 : 1;
+    }
+  }
+  return { t: best, nx, ny };
+}

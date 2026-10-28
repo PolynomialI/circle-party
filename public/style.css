@@ -1,6 +1,4 @@
-/* Circle Soccer's UI, flat. Colours come from shared/theme.js as CSS variables (set in main.js). */
-:root { color-scheme: dark; }
-
+/* Cartoon facility UI. Colours come from shared/theme.js as CSS variables (set in main.js). */
 * { box-sizing: border-box; }
 
 html, body {
@@ -8,11 +6,20 @@ html, body {
   height: 100%;
   overflow: hidden;
   font-family: var(--font);
-  color: var(--text);
-  background: var(--bg);
+  color: var(--ink);
+  background: var(--page);
+}
+
+/* Floor plate seams behind the menus. */
+body {
+  background-image:
+    linear-gradient(var(--seam) 2px, transparent 2px),
+    linear-gradient(90deg, var(--seam) 2px, transparent 2px);
+  background-size: 160px 160px;
 }
 
 #game {
+  cursor: none;
   position: fixed;
   inset: 0;
   width: 100%;
@@ -35,12 +42,15 @@ html, body {
 }
 
 .logo {
-  font-size: clamp(32px, 7vw, 56px);
-  margin: 0;
-  letter-spacing: -1px;
+  font-size: clamp(36px, 8vw, 64px);
+  font-weight: 700;
+  margin: 0 0 6px;
   display: flex;
   align-items: center;
   gap: 14px;
+  color: var(--white);
+  -webkit-text-stroke: 3px var(--ink);
+  paint-order: stroke fill;
 }
 
 .dot {
@@ -49,83 +59,102 @@ html, body {
   border-radius: 50%;
   display: inline-block;
   flex: 0 0 auto;
+  border: 3px solid var(--ink);
 }
 .dot.red { background: var(--red); }
 .dot.blue { background: var(--blue); }
 
 .card {
   background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 14px;
+  border: 3px solid var(--ink);
+  border-radius: 16px;
+  box-shadow: 0 5px 0 var(--ink);
   padding: 14px 16px;
-  width: min(420px, 100%);
+  width: min(440px, 100%);
 }
-.card .row + .row { margin-top: 8px; }
-.card-width { width: min(420px, 100%); }
+.card .row + .row { margin-top: 10px; }
+.card-width { width: min(440px, 100%); }
 
 .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 .row > * { flex: 1 1 auto; }
 .col { display: flex; flex-direction: column; gap: 10px; }
 
-.field { display: flex; flex-direction: column; gap: 6px; width: min(420px, 100%); color: var(--muted); font-size: 14px; }
+.field { display: flex; flex-direction: column; gap: 6px; width: min(440px, 100%); color: var(--ink-soft); font-size: 15px; font-weight: 600; }
 
 button, select, input {
   font: inherit;
-  color: var(--text);
-  background: var(--button);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 10px 14px;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--white);
+  border: 3px solid var(--ink);
+  border-radius: 12px;
+  padding: 9px 14px;
 }
-button { cursor: pointer; font-weight: 600; transition: transform 0.06s, background 0.15s; }
+button {
+  cursor: pointer;
+  color: var(--white);
+  background: var(--button);
+  box-shadow: 0 4px 0 var(--ink);
+  transition: transform 0.05s, box-shadow 0.05s, background 0.15s;
+}
 button:hover { background: var(--button-hover); }
-button:active { transform: translateY(1px); }
-button:disabled { opacity: 0.45; cursor: default; }
-button.primary { background: var(--accent); color: var(--accent-text); border-color: transparent; }
+button:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
+button:disabled { opacity: 0.5; cursor: default; transform: none; }
+button.primary { background: var(--accent); color: var(--ink); }
 button.primary:hover { background: var(--accent-hover); }
-button.ghost { background: transparent; }
-button.on { outline: 2px solid var(--ready); outline-offset: -2px; }
-select option { color: #111; }
-input:focus, select:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+button.ghost { background: var(--card); color: var(--ink); }
+button.on { background: var(--good); color: var(--ink); }
+select option { color: var(--ink); }
+input:focus, select:focus, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 
 #join-code { text-transform: uppercase; letter-spacing: 4px; text-align: center; max-width: 160px; }
 
-.big { font-size: 22px; font-weight: 700; margin: 0; }
-.code { font-family: var(--mono); letter-spacing: 4px; color: var(--accent); }
+.big { font-size: 24px; font-weight: 700; margin: 0; }
+.code { font-family: var(--mono); letter-spacing: 4px; color: var(--ink); background: var(--accent); padding: 0 8px; border-radius: 8px; border: 3px solid var(--ink); }
+
+h2 { font-weight: 700; margin: 0; }
 
 .spinner {
-  width: 46px;
-  height: 46px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
-  border: 5px solid var(--line);
-  border-top-color: var(--accent);
+  border: 6px solid var(--decal);
+  border-top-color: var(--ink);
   animation: spin 0.9s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .swatches { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 .swatch {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   padding: 0;
   border-radius: 50%;
-  border: 2px solid;
+  border: 3px solid var(--ink);
+  box-shadow: 0 3px 0 var(--ink);
 }
-.swatch.picked { outline: 2px solid var(--white); outline-offset: 3px; }
+.swatch.picked { outline: 4px solid var(--accent); outline-offset: 2px; }
 
 .list { width: 100%; border-collapse: collapse; }
-.list td { padding: 7px 4px; border-bottom: 1px solid var(--line); }
+.list td { padding: 7px 4px; border-bottom: 2px solid var(--seam); }
 .list tr:last-child td { border-bottom: 0; }
 .list th { color: var(--muted); font-size: 12px; font-weight: 600; text-align: right; padding: 0 4px 6px; }
-.list td:first-child { width: 26px; }
-.list td.num { text-align: right; font-weight: 700; font-family: var(--mono); }
-.list td.tick { width: 26px; text-align: center; color: var(--ready); font-weight: 800; }
-.list tr.me td.name { color: var(--me-name); }
-.list .dot { width: 16px; height: 16px; border: 2px solid; vertical-align: middle; }
+.list td:first-child { width: 28px; }
+.list td.num { text-align: right; font-weight: 700; }
+.list td.tick { width: 26px; text-align: center; color: var(--good); font-weight: 700; }
+.list tr.me td.name { font-weight: 700; }
+.list .dot { width: 18px; height: 18px; border-width: 2.5px; vertical-align: middle; }
 
-.setting { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--muted); }
-.setting + .setting, #game-settings .setting { margin-top: 8px; }
-.setting select { min-width: 150px; }
+.setting { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--ink-soft); font-weight: 600; }
+.setting + .setting, #game-settings .setting { margin-top: 10px; }
+.setting select { min-width: 160px; }
+
+.games { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin-bottom: 10px; }
+.games button { padding: 8px 6px; font-size: 14px; }
+.games button.picked { background: var(--accent); color: var(--ink); }
+.games button:disabled { opacity: 1; }
+.games button:disabled:not(.picked) { opacity: 0.55; }
+.blurb { color: var(--ink-soft); font-size: 14px; margin: 0 0 4px; }
 
 .overlay {
   position: fixed;
@@ -139,29 +168,32 @@ input:focus, select:focus, button:focus-visible { outline: 2px solid var(--accen
 }
 .overlay.modal { z-index: 10; }
 .panel {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 16px;
+  background: var(--card);
+  border: 3px solid var(--ink);
+  border-radius: 18px;
+  box-shadow: 0 6px 0 var(--ink);
   padding: 20px 22px;
-  width: min(380px, 100%);
+  width: min(400px, 100%);
   max-height: 100%;
   overflow-y: auto;
 }
-.panel.wide { width: min(520px, 100%); }
-.panel h2 { margin-top: 0; }
-.panel h3 { margin: 18px 0 8px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+.panel.wide { width: min(560px, 100%); }
+.panel h2 { margin-bottom: 12px; }
+.panel h3 { margin: 18px 0 6px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
 .panel .row { margin-top: 14px; }
-.list td.key { text-align: right; font-family: var(--mono); color: var(--accent); }
+.list td.key { text-align: right; font-weight: 700; color: var(--ink-soft); }
 
 #toast {
   position: fixed;
   left: 50%;
   bottom: 24px;
   transform: translateX(-50%);
-  background: var(--panel);
-  border: 1px solid var(--line);
+  background: var(--card);
+  border: 3px solid var(--ink);
+  box-shadow: 0 4px 0 var(--ink);
+  font-weight: 600;
   padding: 10px 16px;
-  border-radius: 10px;
+  border-radius: 12px;
   z-index: 20;
   max-width: calc(100% - 32px);
 }

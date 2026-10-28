@@ -9,10 +9,9 @@ const $ = (id) => document.getElementById(id);
 
 // One theme: the page's CSS variables come from the same values the canvas uses.
 const cssVars = {
-  bg: THEME.bg, panel: THEME.panel, card: THEME.card, line: THEME.line, text: THEME.text, muted: THEME.muted,
-  accent: THEME.accent, 'accent-hover': THEME.accentHover, 'accent-text': THEME.accentText, button: THEME.button,
-  'button-hover': THEME.buttonHover, dim: THEME.dim, ready: THEME.ready, white: THEME.white, 'me-name': THEME.meName,
-  font: THEME.font, mono: THEME.mono, red: COLORS[0].main, blue: COLORS[1].main,
+  page: THEME.page, card: THEME.card, ink: THEME.ink, 'ink-soft': THEME.inkSoft, muted: THEME.muted, accent: THEME.accent,
+  'accent-hover': THEME.accentHover, button: THEME.button, 'button-hover': THEME.buttonHover, dim: THEME.dim, white: THEME.white,
+  good: THEME.good, decal: THEME.decal, seam: THEME.seam, font: THEME.font, mono: THEME.mono, red: COLORS[0].main, blue: COLORS[1].main,
 };
 for (const [k, v] of Object.entries(cssVars)) document.documentElement.style.setProperty(`--${k}`, v);
 
@@ -47,6 +46,7 @@ const app = {
   pendingRoom: new URLSearchParams(location.search).get('room'),
 };
 window.__party = app; // read by the automated browser tests
+app.socket = socket;
 
 // ---- screens & overlays -------------------------------------------------------------
 
@@ -157,7 +157,6 @@ $('ready').addEventListener('click', () => {
 });
 $('start').addEventListener('click', () => socket.emit('start'));
 $('leave').addEventListener('click', leaveRoom);
-$('game-pick').addEventListener('change', () => socket.emit('pick', { game: $('game-pick').value }));
 
 function dot(colorIdx) {
   const d = document.createElement('span');
@@ -194,9 +193,16 @@ function renderLobby(room) {
   }
 
   const pick = $('game-pick');
-  pick.replaceChildren(...app.catalog.map((g) => new Option(g.name, g.id)));
-  pick.value = room.game;
-  pick.disabled = !isHost || !inLobby;
+  pick.replaceChildren(...app.catalog.map((g) => {
+    const b = document.createElement('button');
+    b.textContent = g.name;
+    b.className = g.id === room.game ? 'picked' : '';
+    b.disabled = !isHost || !inLobby;
+    b.addEventListener('click', () => socket.emit('pick', { game: g.id }));
+    return b;
+  }));
+  const picked = app.catalog.find((g) => g.id === room.game);
+  $('game-blurb').textContent = picked ? picked.blurb : '';
 
   const box = $('game-settings');
   box.replaceChildren();
@@ -239,7 +245,8 @@ function showResult({ result }) {
   const winner = result.standings.find((s) => s.id === result.winnerId);
   const title = $('result-title');
   title.replaceChildren();
-  if (winner) title.append(dot(winner.color), ` ${winner.name} wins!`);
+  if (result.title) title.append(dot(result.team), ` ${result.title}`);
+  else if (winner) title.append(dot(winner.color), ` ${winner.name} wins!`);
   else title.textContent = 'No winner';
   const table = $('result-table');
   table.replaceChildren();
@@ -318,7 +325,13 @@ function renderControls() {
     box.append(h, table);
   };
   section('General', [['Menu', 'Esc']]);
-  for (const mod of Object.values(CLIENT_GAMES)) section(mod.name, mod.controls);
+  // Games with the same controls share one table.
+  const groups = new Map();
+  for (const mod of Object.values(CLIENT_GAMES)) {
+    const key = JSON.stringify(mod.controls);
+    groups.set(key, [...(groups.get(key) || []), mod.name]);
+  }
+  for (const [key, names] of groups) section(names.join(', '), JSON.parse(key));
 }
 renderControls();
 

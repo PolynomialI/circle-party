@@ -43,6 +43,9 @@ test('create, join, ready, start, finish, back to the lobby with points', async 
   a.emit('create');
   const room = await created;
   assert.equal(room.code.length, 5);
+  const picked = a.onceEvent('room', (r) => r.game === 'sumo');
+  a.emit('pick', { game: 'sumo' });
+  await picked;
 
   const joined = b.onceEvent('room', (r) => r.members.length === 2);
   b.emit('join', { code: room.code.toLowerCase() });

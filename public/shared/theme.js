@@ -1,41 +1,55 @@
-// The one theme every screen and game uses. Values are taken from Circle Soccer.
+// The one theme every screen and game uses: a cartoon sci-fi facility seen from above.
+// Pale blue floors, slate machinery with dark navy outlines, yellow hazard stripes.
 
 export const THEME = {
-  bg: '#0d1b14', // page background
-  void: '#10241a', // canvas background
-  panel: '#13241b',
-  hud: '#0f1d15', // dark HUD blocks
-  card: 'rgba(255, 255, 255, 0.06)',
-  button: 'rgba(255, 255, 255, 0.08)',
-  buttonHover: 'rgba(255, 255, 255, 0.16)',
-  line: 'rgba(255, 255, 255, 0.12)',
-  dim: 'rgba(5, 12, 8, 0.6)', // overlay behind panels
-  text: '#eef5ef',
-  muted: '#9db5a4',
-  accent: '#ffd447',
-  accentHover: '#ffe07a',
-  accentText: '#1d1a08',
-  meName: '#ffe680',
+  // page and UI
+  page: '#d3e3fa',
+  card: '#eef4fd',
+  ink: '#262a36', // outlines and text
+  inkSoft: '#526476',
+  muted: '#6b7c93',
+  accent: '#f2c23a', // hazard yellow
+  accentHover: '#f7d462',
+  button: '#526476',
+  buttonHover: '#616f7f',
+  dim: 'rgba(38, 42, 54, 0.55)', // overlay behind panels
   white: '#ffffff',
-  chalk: 'rgba(255, 255, 255, 0.8)', // pitch lines
-  rim: '#23662f', // pitch surround
-  grass: ['#2f803a', '#338a3f'], // pitch stripes
-  ice: '#9cc4ff',
-  post: '#f4f4f4',
-  postLine: 'rgba(0, 0, 0, 0.45)',
-  barBack: 'rgba(0, 0, 0, 0.45)',
-  ready: '#7cf29a',
-  notReady: '#f2b84b',
-  font: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+  good: '#3fbf6a',
+
+  // world
+  void: '#262a36', // outside the map, pits
+  dark: '#1c2029', // unlit areas in the dark games
+  floor: '#d3e3fa',
+  floorAlt: '#c6d9f5',
+  floorWarm: '#e6e1f3',
+  floorMint: '#cfeee4',
+  decal: '#acc9f3', // painted floor markings
+  seam: '#bfd3f1', // floor plate seams
+  wallTop: '#616f7f',
+  wallRim: '#748296',
+  wallSide: '#474d5a',
+  wallInner: '#526476',
+  metal: '#939eaf',
+  metalDark: '#6b7683',
+  teal: '#395062',
+  crate: '#e8a33a',
+  crateDark: '#b9771f',
+  ice: '#f4f9ff',
+  danger: '#d53a4a',
+  shadow: 'rgba(38, 42, 54, 0.2)', // flat offset shadow under walls and props
+  gun: '#b5c2d2',
+
+  // sizes
+  font: '"Fredoka", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
   mono: 'ui-monospace, monospace',
-  outline: 2, // player outline width
-  meRing: 2, // white ring around your own player, drawn at r + 3
-  lineWidth: 3, // pitch lines and effect rings
-  chargeWidth: 3.5,
+  outline: 3, // outline width for players, walls and props
+  lineWidth: 3,
+  chargeWidth: 4,
+  shadowOffset: 6,
+  wallSideH: 12, // height of the darker front face drawn at the bottom of walls
 };
 
-// Player colours: Circle Soccer's team and power-up colours, each with a darker outline shade.
-// The first two double as the red and blue teams.
+// Player colours, each with a darker shade for details. The first two double as teams.
 export const COLORS = [
   { name: 'Red', main: '#ef4b4b', dark: '#9e2424' },
   { name: 'Blue', main: '#3d8bff', dark: '#1d4fa8' },

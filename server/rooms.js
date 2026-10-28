@@ -203,8 +203,10 @@ export class Rooms {
 
   endGame(room) {
     const result = room.game.result;
-    const winner = result.winnerId && room.members.get(result.winnerId);
-    if (winner) winner.points++;
+    for (const id of result.winnerIds || (result.winnerId ? [result.winnerId] : [])) {
+      const m = room.members.get(id);
+      if (m) m.points++;
+    }
     room.phase = 'results';
     this.io.to(room.channel).emit('gameEnd', { result });
     this.broadcast(room);

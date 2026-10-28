@@ -11,6 +11,7 @@ export class Play {
     this.input = input;
     this.myId = myId;
     this.game = new Game(stage, start.init);
+    this.game.input = input;
     this.snaps = new Snapshots();
     this.seq = 0;
     this.acc = 0;

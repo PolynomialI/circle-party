@@ -1,15 +1,27 @@
 # Circle Party
 
-Small real-time multiplayer party games for friends, in the style of Circle Soccer. One player
-creates a room and shares the code or link, everyone joins, and the host picks a game. The room
-stays together between games and keeps a points table for the session.
+Small real-time multiplayer party games for friends, drawn as a cartoon sci-fi facility seen from
+above. One player creates a room and shares the code or link, everyone joins (up to 8), and the
+host picks a game. The room stays together between games and keeps a points table for the session.
 
 ## Games
 
-- **Sumo:** knock everyone off the platform with your stick. Last one standing wins the round;
-  first to N rounds wins. Six maps: Classic, Shrinking, Broken Ring, Turntable, Ice Rink, Pinball.
+| Game | What you do |
+| --- | --- |
+| Dark Ops | Flashlight shootout in dark facilities (free-for-all or teams). Pick up better guns. |
+| Infection | Survivors with flashlights against fast infected. Anyone tagged turns. |
+| Sumo | Knock everyone off the platform with your stick. Six platforms. |
+| Ricochet Tanks | A new maze each round. Bullets bounce; one hit and you're out. |
+| Bomb Tag | Touch someone to pass the bomb before it blows. |
+| Hex Drop | Tiles fall soon after you step on them. |
+| Paint Grab | Paint the most floor in your colour. |
+| King of the Hill | Hold the moving zone alone; stick fights to clear it. |
+| Crown Keeper | Keep the crown the longest; touch the holder to steal it. |
+| Stop & Go | Race to the end, but freeze when the light turns red. |
+| Wall Rush | Find the gaps in the walls sweeping down the platform. |
+| Light Trails | Always moving, leaving a wall behind you. Make others crash. |
 
-Controls are listed in Settings.
+Controls for every game are listed in Settings.
 
 ## Run locally
 
@@ -20,6 +32,7 @@ npm install
 npm start          # http://localhost:3000
 npm test           # game and room tests
 npm run e2e        # 4+ browsers play a full game with 140 ms of simulated lag (screenshots in .e2e/)
+node e2e/play.mjs 140 tour   # 4 bots play every game in turn
 ```
 
 Add `?lag=120` to the page URL to simulate 120 ms of round-trip lag.
@@ -39,13 +52,15 @@ If Render gives either service a different URL, update `public/config.js`.
 
 - `server/rooms.js`: rooms, lobby, ready-up, host settings, points, the 60 Hz loop that steps
   every game and sends each player their own snapshot 30 times a second, and rate limiting.
-- `server/games/`: one module per game (setup, input, step, per-player snapshot).
+- `server/games/`: one module per game (setup, input, step, per-player snapshot). `arena.js` is the
+  shared base (rounds, first-to-N, snapshots); `walkgame.js` adds walking around a map with walls.
 - `server/commands.js`: validates player input commands and queues one per tick.
 - `public/shared/`: code the server and browser both use: the theme (all colours and sizes),
-  timing, and each game's rules and movement (so the browser predicts your own movement with
-  the server's code).
+  timing, maps, and each game's rules and movement (so the browser predicts your own movement
+  with the server's code).
 - `public/js/`: the browser client: hub screens (`main.js`), snapshot buffering, interpolation
   and prediction (`net.js`, `play.js`), canvas and camera (`stage.js`), flat drawing helpers
-  (`draw.js`) and one renderer per game in `games/`.
+  (`draw.js`, `world-draw.js`) and one renderer per game in `games/`.
 - Hits are checked on the server against where the attacker saw the target (lag compensation,
-  up to 200 ms back).
+  up to 200 ms back). In Dark Ops and Infection the server only sends each player the enemies
+  inside their own light.

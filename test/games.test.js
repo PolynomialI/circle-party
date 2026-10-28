@@ -1,0 +1,47 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { GAMES } from '../server/games/index.js';
+import { DT } from '../public/shared/loop.js';
+
+function seeded(seed = 1) {
+  return () => {
+    seed = (seed * 16807) % 2147483647;
+    return (seed - 1) / 2147483646;
+  };
+}
+
+const defaults = (info) => Object.fromEntries(info.settings.map((s) => [s.key, s.def]));
+
+// Every game survives 90 s of random input from 4 players, a late joiner and a leaver,
+// with snapshots that serialise and stay small.
+for (const [id, g] of Object.entries(GAMES)) {
+  test(`${id}: 90 seconds of random play`, () => {
+    const rng = seeded(id.length * 7919);
+    const players = ['a', 'b', 'c', 'd'].map((p, i) => ({ id: p, name: p.toUpperCase(), color: i }));
+    const game = g.create({ players, settings: defaults(g.info), rng });
+    const seq = { a: 0, b: 0, c: 0, d: 0, e: 0 };
+    let maxBytes = 0;
+    let rounds = 0;
+    for (let t = 0; t < 90 / DT && !game.result; t++) {
+      if (t === 600) {
+        game.addPlayer({ id: 'e', name: 'E', color: 4 });
+        seq.e = 0;
+      }
+      if (t === 1500) game.removePlayer('b');
+      for (const p of game.players.keys()) {
+        const r = () => rng() * 2 - 1;
+        game.input(p, { c: [[++seq[p], r(), r(), r() * 3, Math.floor(rng() * 32), game.tick - 5]] });
+      }
+      game.step();
+      if (t % 2 === 0) {
+        for (const p of game.players.keys()) {
+          const bytes = JSON.stringify(game.snapshotFor(p)).length;
+          maxBytes = Math.max(maxBytes, bytes);
+        }
+      }
+      rounds = Math.max(rounds, game.round);
+    }
+    assert.ok(maxBytes < 8000, `snapshots up to ${maxBytes} bytes`);
+    assert.ok(rounds >= 1);
+  });
+}

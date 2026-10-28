@@ -1,7 +1,9 @@
 // Keyboard and mouse, turned into one command per tick: { mx, my, a, b }.
-// b bit 1 = primary button held, bit 2 = dash pressed since the last command.
+// b bit 1 = primary button held; bits for keys pressed since the last command:
+// 2 = Space (dash), 4 = R (reload), 8 = Q (switch), 16 = E (use).
 
 const MOVE = { KeyW: 'up', KeyA: 'left', KeyS: 'down', KeyD: 'right' };
+const PRESS = { Space: 2, KeyR: 4, KeyQ: 8, KeyE: 16 };
 
 export class Input {
   constructor(canvas) {
@@ -9,7 +11,7 @@ export class Input {
     this.order = {}; // key -> when it was last pressed, so the newest of two opposite keys wins
     this.count = 0;
     this.mouse = { x: 0, y: 0, down: false, seen: false };
-    this.dash = false;
+    this.presses = 0;
     this.aim = 0;
     this.enabled = false;
 
@@ -19,9 +21,9 @@ export class Input {
         e.preventDefault();
         if (!this.held.has(MOVE[e.code])) this.order[MOVE[e.code]] = ++this.count;
         this.held.add(MOVE[e.code]);
-      } else if (e.code === 'Space') {
+      } else if (PRESS[e.code]) {
         e.preventDefault();
-        if (!e.repeat) this.dash = true;
+        if (!e.repeat) this.presses |= PRESS[e.code];
       }
     });
     window.addEventListener('keyup', (e) => {
@@ -62,14 +64,14 @@ export class Input {
       mx *= Math.SQRT1_2;
       my *= Math.SQRT1_2;
     }
-    const b = (this.mouse.down ? 1 : 0) | (this.dash ? 2 : 0);
-    this.dash = false;
+    const b = (this.mouse.down ? 1 : 0) | this.presses;
+    this.presses = 0;
     return { mx, my, a: this.aim, b };
   }
 
   releaseAll() {
     this.held.clear();
     this.mouse.down = false;
-    this.dash = false;
+    this.presses = 0;
   }
 }

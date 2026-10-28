@@ -18,20 +18,40 @@ export class Stage {
     this.canvas.height = Math.round(this.h * this.dpr);
   }
 
-  clear() {
+  clear(color = THEME.void) {
     this.screen();
-    this.ctx.fillStyle = THEME.void;
+    this.ctx.fillStyle = color;
     this.ctx.fillRect(0, 0, this.w, this.h);
   }
 
-  // Camera that shows a whole arena of the given radius, below a HUD strip of height top.
-  fit(radius, top) {
+  // Camera that shows the whole world rectangle, below a HUD strip of height top.
+  fitRect(x0, y0, x1, y1, top = 0, pad = 20) {
     const c = this.cam;
-    c.x = 0;
-    c.y = 0;
-    c.zoom = Math.min(this.w, this.h - top) / (2 * radius);
+    c.zoom = Math.min((this.w - pad * 2) / (x1 - x0), (this.h - top - pad * 2) / (y1 - y0));
+    c.x = (x0 + x1) / 2;
+    c.y = (y0 + y1) / 2;
     c.sx = this.w / 2;
     c.sy = top + (this.h - top) / 2;
+  }
+
+  fit(radius, top) {
+    this.fitRect(-radius, -radius, radius, radius, top, 0);
+  }
+
+  // Camera centred on a point, showing about span world units across the longer screen side.
+  follow(x, y, span) {
+    const c = this.cam;
+    c.zoom = Math.max(this.w, this.h) / span;
+    c.x = x;
+    c.y = y;
+    c.sx = this.w / 2;
+    c.sy = this.h / 2;
+  }
+
+  // The world rectangle currently on screen.
+  viewRect() {
+    const { zoom, sx, sy, x, y } = this.cam;
+    return { x0: x - sx / zoom, y0: y - sy / zoom, x1: x + (this.w - sx) / zoom, y1: y + (this.h - sy) / zoom };
   }
 
   world() {

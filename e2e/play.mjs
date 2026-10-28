@@ -1,6 +1,7 @@
-// End-to-end check with real browsers: 4 players (plus one joining mid-game) play a full Sumo
-// game with simulated lag, then return to the lobby. Also checks the wake-up screen.
-// Usage: node e2e/play.mjs [lagMs]   Screenshots and a video go to .e2e/
+// End-to-end checks with real browsers and simulated lag. Screenshots and a video go to .e2e/
+//   node e2e/play.mjs [lagMs]               4 players (plus one joining mid-game) play a full game of
+//                                           Bomb Tag, then return to the lobby; also checks the wake-up screen
+//   node e2e/play.mjs [lagMs] tour [ids..]  4 bots play each game (or the listed ones) for a while
 import { spawn } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
@@ -13,6 +14,8 @@ const { chromium } = require('playwright');
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, '.e2e');
 const LAG = Number(process.argv[2] ?? 140);
+const TOUR = process.argv[3] === 'tour';
+const TOUR_GAMES = process.argv.slice(4);
 const PORT = 3200 + Math.floor(Math.random() * 500);
 const BASE = `http://localhost:${PORT}`;
 mkdirSync(OUT, { recursive: true });
@@ -74,8 +77,17 @@ async function instrument(page) {
   });
 }
 
-// A simple bot using real mouse and keyboard input: chase the nearest player, swing when close.
+// A simple bot using real mouse and keyboard input: chase the nearest player it can see and
+// click when close (swing, shoot or fire); wander when nobody is in sight.
 async function bot(page, stopAt) {
+  try {
+    await botLoop(page, stopAt);
+  } catch {
+    // the page closed under us (a check failed and the test is ending)
+  }
+}
+
+async function botLoop(page, stopAt) {
   const keys = { KeyW: false, KeyA: false, KeyS: false, KeyD: false };
   const setKey = async (k, on) => {
     if (keys[k] === on) return;
@@ -83,6 +95,7 @@ async function bot(page, stopAt) {
     await (on ? page.keyboard.down(k) : page.keyboard.up(k));
   };
   let swingUntil = 0;
+  let wander = Math.random() * 6.28;
   while (Date.now() < stopAt()) {
     const s = await page.evaluate(() => {
       const g = window.__party.play && window.__party.play.game;
@@ -91,35 +104,103 @@ async function bot(page, stopAt) {
       const me = g.mePos;
       others.sort((a, b) => Math.hypot(a.x - me.x, a.y - me.y) - Math.hypot(b.x - me.x, b.y - me.y));
       const t = others[0];
-      return { st: g.view.st, me, scr: g.stage.toScreen(me.x, me.y), t: t && { x: t.x, y: t.y, scr: g.stage.toScreen(t.x, t.y) } };
+      const map = g.map || null;
+      return {
+        st: g.view.st, me, scr: g.stage.toScreen(me.x, me.y), w: g.stage.w, h: g.stage.h,
+        mid: map ? { x: map.w / 2, y: map.h / 2 } : { x: 0, y: 0 },
+        t: t && { x: t.x, y: t.y, scr: g.stage.toScreen(t.x, t.y) },
+      };
     }).catch(() => null);
-    if (s && s.t && s.st !== 0) {
-      const dx = s.t.x - s.me.x;
-      const dy = s.t.y - s.me.y;
-      const d = Math.hypot(dx, dy);
+    if (s && s.st !== 0) {
+      let dx;
+      let dy;
+      let d = Infinity;
+      if (s.t) {
+        dx = s.t.x - s.me.x;
+        dy = s.t.y - s.me.y;
+        d = Math.hypot(dx, dy) || 1;
+        dx /= d;
+        dy /= d;
+        await page.mouse.move(s.t.scr.x, s.t.scr.y);
+      } else {
+        if (Math.random() < 0.05) wander += (Math.random() - 0.5) * 2;
+        dx = Math.cos(wander);
+        dy = Math.sin(wander);
+        await page.mouse.move(s.scr.x + dx * 200, s.scr.y + dy * 200);
+      }
       // Drift back towards the middle a little so bots don't just walk off.
-      const cx = dx / d - s.me.x / 600;
-      const cy = dy / d - s.me.y / 600;
+      const cx = dx - (s.me.x - s.mid.x) / 700;
+      const cy = dy - (s.me.y - s.mid.y) / 700;
       await setKey('KeyD', cx > 0.3);
       await setKey('KeyA', cx < -0.3);
       await setKey('KeyS', cy > 0.3);
       await setKey('KeyW', cy < -0.3);
-      await page.mouse.move(s.t.scr.x, s.t.scr.y);
       const now = Date.now();
-      if (d < 75 && !swingUntil) {
+      if (d < 420 && !swingUntil) {
         await page.mouse.down();
-        swingUntil = now + Math.random() * 600;
+        swingUntil = now + Math.random() * 500;
       } else if (swingUntil && now > swingUntil) {
         await page.mouse.up();
         swingUntil = 0;
       }
-      if (d < 140 && Math.random() < 0.04) await page.keyboard.press('Space');
+      if (Math.random() < 0.03) await page.keyboard.press(['Space', 'KeyR', 'KeyQ', 'KeyE'][Math.floor(Math.random() * 4)]);
     } else {
       for (const k of Object.keys(keys)) await setKey(k, false);
     }
     await sleep(80);
   }
   for (const k of Object.keys(keys)) await setKey(k, false);
+  await page.mouse.up();
+}
+
+async function report(pages) {
+  for (const p of pages) {
+    const m = await p.evaluate(() => window.__metrics);
+    const c = m.corrections.sort((a, b) => a - b);
+    const q = (f) => (c.length ? c[Math.floor((c.length - 1) * f)].toFixed(1) : '-');
+    console.log(`  ${p.label}: ${m.frames} frames, ${m.slow} over 34 ms; corrections median ${q(0.5)} px, p90 ${q(0.9)} px (${c.length} snapshots)`);
+  }
+}
+
+// Each game in turn: a fresh room, 4 bots, screenshots part way through.
+async function tour(browser) {
+  const ids = TOUR_GAMES.length ? TOUR_GAMES : null;
+  const pages = [];
+  for (let i = 0; i < 4; i++) pages.push(await newPlayer(browser, ['Ann', 'Bob', 'Cat', 'Dan'][i]));
+  for (let i = 0; i < 4; i++) await setProfile(pages[i], pages[i].label, i);
+  const [host, ...guests] = pages;
+  const catalog = await host.evaluate(() => window.__party.catalog.map((g) => g.id));
+  for (const id of ids || catalog) {
+    await host.goto(`${BASE}/?lag=${LAG}`);
+    await host.waitForSelector('#home:not(.hidden)');
+    await host.click('#create');
+    await host.waitForSelector('#lobby:not(.hidden)');
+    const code = (await host.textContent('#room-code')).trim();
+    for (const g of guests) {
+      await g.goto(`${BASE}/?room=${code}&lag=${LAG}`);
+      await g.waitForSelector('#lobby:not(.hidden)');
+      await g.click('#ready');
+    }
+    await host.evaluate((gid) => window.__party.socket.emit('pick', { game: gid }), id);
+    await host.waitForFunction((gid) => window.__party.room.game === gid, id);
+    await host.waitForFunction(() => !document.getElementById('start').disabled);
+    for (const p of pages) await instrument(p);
+    await host.click('#start');
+    for (const p of pages) await p.waitForSelector('#game:not(.hidden)');
+    let done = false;
+    const bots = pages.map((p) => bot(p, () => (done ? 0 : Infinity)));
+    await sleep(9000);
+    await host.screenshot({ path: path.join(OUT, `tour-${id}-1.png`) });
+    await guests[0].screenshot({ path: path.join(OUT, `tour-${id}-2.png`) });
+    await sleep(14000);
+    await host.screenshot({ path: path.join(OUT, `tour-${id}-3.png`) });
+    done = true;
+    await Promise.all(bots);
+    console.log(`ok - ${id} played`);
+    await report(pages);
+    for (const p of pages) await p.evaluate(() => window.__party.socket.emit('leave'));
+  }
+  check(errors.length === 0, `no page errors${errors.length ? `: ${errors.slice(0, 5).join(' | ')}` : ''}`);
 }
 
 async function wakeScreenTest(browser) {
@@ -143,8 +224,12 @@ async function wakeScreenTest(browser) {
 }
 
 const browser = await chromium.launch();
-const server = await wakeScreenTest(browser);
+const server = TOUR ? await startServer() : await wakeScreenTest(browser);
 try {
+  if (TOUR) {
+    await tour(browser);
+    process.exitCode = 0;
+  } else {
   const names = ['Ann', 'Bob', 'Cat', 'Dan'];
   const pages = [];
   for (let i = 0; i < 4; i++) pages.push(await newPlayer(browser, names[i], i === 0));
@@ -168,6 +253,8 @@ try {
   await host.waitForFunction(() => window.__party.room.members.length === 4);
   check(true, 'four players in the lobby (link and code joins)');
 
+  await host.click('#game-pick button:has-text("Bomb Tag")');
+  await host.waitForFunction(() => window.__party.room.game === 'bombtag');
   await host.selectOption('#game-settings select >> nth=0', '3');
   check(await host.isDisabled('#start'), 'start is blocked until everyone is ready');
   for (const g of guests) await g.click('#ready');
@@ -197,11 +284,11 @@ try {
   // Screenshot each new round's map, and watch for the late player getting a turn.
   const seenMaps = new Set();
   let lateAlive = false;
-  const deadline = Date.now() + 5 * 60 * 1000;
+  const deadline = Date.now() + 8 * 60 * 1000;
   while (Date.now() < deadline) {
     const st = await host.evaluate(() => {
       const g = window.__party.play && window.__party.play.game;
-      return { over: !document.getElementById('result').classList.contains('hidden'), rd: g && g.view && g.view.rd, map: g && g.view && g.view.map.name, st: g && g.view && g.view.st };
+      return { over: !document.getElementById('result').classList.contains('hidden'), rd: g && g.view && g.view.rd, map: g && g.map && g.map.name, st: g && g.view && g.view.st };
     });
     if (st.over) break;
     if (st.map && st.st === 1 && !seenMaps.has(`${st.rd}`)) {
@@ -226,15 +313,11 @@ try {
   check(/:1/.test(points), `back in the lobby, points ${points} (${winner})`);
   await host.screenshot({ path: path.join(OUT, 'lobby-after.png') });
 
-  for (const p of [...pages, late]) {
-    const m = await p.evaluate(() => window.__metrics);
-    const c = m.corrections.sort((a, b) => a - b);
-    const q = (f) => (c.length ? c[Math.floor((c.length - 1) * f)].toFixed(1) : '-');
-    console.log(`  ${p.label}: ${m.frames} frames, ${m.slow} over 34 ms; prediction corrections median ${q(0.5)} px, p90 ${q(0.9)} px, max ${q(1)} px (${c.length} snapshots)`);
-  }
+  await report([...pages, late]);
   check(errors.length === 0, `no page errors${errors.length ? `: ${errors.join(' | ')}` : ''}`);
   await pages[0].context().close(); // flush the video
   console.log(`video: ${await pages[0].video().path()}`);
+  }
 } finally {
   await browser.close();
   server.kill();

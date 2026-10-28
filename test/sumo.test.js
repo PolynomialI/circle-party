@@ -128,7 +128,7 @@ test('commands are validated', () => {
   assert.equal(parseCommand([0, 0, 0, 0, 0, 0]), null);
   const c = parseCommand([5, 9, 9, 100, 255, 'x']);
   assert.ok(Math.abs(Math.hypot(c.mx, c.my) - 1) < 1e-9, 'movement clamped to unit length');
-  assert.equal(c.b, 3);
+  assert.equal(c.b, 31);
   assert.equal(c.vt, -1);
 
   const g = newGame();

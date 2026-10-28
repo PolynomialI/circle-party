@@ -9,6 +9,7 @@ const REPEAT_TICKS = 15;
 const finite = (v) => typeof v === 'number' && Number.isFinite(v);
 
 // Wire format: [seq, mx, my, aim, buttons, viewTick]
+// buttons: 1 primary held, 2 dash, 4 reload, 8 swap, 16 use (all but 1 are presses)
 export function parseCommand(raw) {
   if (!Array.isArray(raw) || raw.length !== 6) return null;
   const [seq, mx, my, a, b, vt] = raw;
@@ -25,7 +26,7 @@ export function parseCommand(raw) {
     mx: x,
     my: y,
     a: Math.atan2(Math.sin(a), Math.cos(a)),
-    b: Number.isInteger(b) ? b & 3 : 0,
+    b: Number.isInteger(b) ? b & 31 : 0,
     vt: Number.isInteger(vt) ? vt : -1,
   };
 }
@@ -49,7 +50,7 @@ export class CommandQueue {
     }
     if (this.queue.length > MAX_QUEUE) {
       const dropped = this.queue.splice(0, this.queue.length - KEEP);
-      if (dropped.some((c) => c.b & 2)) this.queue[0].b |= 2; // never lose a dash press
+      for (const c of dropped) this.queue[0].b |= c.b & 30; // never lose a key press
     }
   }
 

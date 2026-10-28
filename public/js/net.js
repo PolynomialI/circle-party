@@ -95,14 +95,14 @@ export class Predictor {
     if (!this.state) return;
     this.pending.push(cmd);
     if (this.pending.length > 120) this.pending.shift();
-    this.step(this.state, cmd);
+    this.step(this.state, cmd, false);
   }
 
   reconcile(server) {
     const before = this.state;
     this.pending = this.pending.filter((c) => c.seq > server.ack);
     this.state = { ...server };
-    for (const c of this.pending) this.step(this.state, c);
+    for (const c of this.pending) this.step(this.state, c, true);
     if (before) {
       this.ox += before.x - this.state.x;
       this.oy += before.y - this.state.y;

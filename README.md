@@ -2,22 +2,25 @@
 
 Small real-time multiplayer party games for friends, drawn as a cartoon sci-fi facility seen from
 above. One player creates a room and shares the code or link, everyone joins (up to 8), and the
-host picks a game. The room stays together between games and keeps a points table for the session.
+host picks one or more games to play in turn. The room stays together between games and keeps a points table for the session.
 
 ## Games
 
 | Game | What you do |
 | --- | --- |
-| Dark Ops | Flashlight shootout in dark facilities (free-for-all or teams). Pick up better guns. |
-| Infection | Survivors with flashlights against fast infected. Anyone tagged turns. |
-| Sumo | Knock everyone off the platform with your stick. Six platforms. |
+| Dark Ops | Flashlight shootout in dark facilities: free-for-all, teams, or Gun Game (a better gun per kill, a worse one per death). Glowing crates hold power-ups. |
+| Deathrunner | One killer rides a conveyor beside the course and fires traps; everyone else runs, jumps and climbs to the finish. |
+| Sky Run | Race the same kind of obstacle course with no killer. |
+| Infection | Survivors with flashlights against fast infected. Anyone tagged turns; the infected score per tag. |
+| Sumo | Knock everyone off the platform with your stick. Your dash is a leap over gaps. |
 | Ricochet Tanks | A new maze each round. Bullets bounce; one hit and you're out. |
 | Bomb Tag | Touch someone to pass the bomb before it blows. |
 | Hex Drop | Tiles fall soon after you step on them. |
 | Paint Grab | Paint the most floor in your colour. |
 | King of the Hill | Hold the moving zone alone; stick fights to clear it. |
 | Crown Keeper | Keep the crown the longest; touch the holder to steal it. |
-| Stop & Go | Race to the end, but freeze when the light turns red. |
+| Spin Cycle | Jump the low bar and duck the high one as the platform shrinks. |
+| Floor is Lava | Get onto a stone before the floor turns to lava. Fewer stones each wave. |
 | Wall Rush | Find the gaps in the walls sweeping down the platform. |
 | Light Trails | Always moving, leaving a wall behind you. Make others crash. |
 

@@ -1,32 +1,7 @@
-// Maps and movement shared by the smaller games (Stop & Go, Hex Drop, Wall Rush, Light Trails,
+// Maps and movement shared by the smaller games (Hex Drop, Wall Rush, Light Trails,
 // Ricochet Tanks), so the browser can predict its own movement.
 import { DT } from './loop.js';
 import { border } from './world.js';
-
-const crate = (x, y, s = 56) => [x, y, s, s, 'crate'];
-
-// ---- Stop & Go: race to the far end, but freeze while the light is red ----
-export const TRACK = {
-  track: {
-    name: 'Test Track',
-    w: 1800,
-    h: 900,
-    finish: 1560,
-    zones: [[40, 40, 200, 820, 'mint'], [1560, 40, 200, 820, 'warm']],
-    blocks: [
-      ...border(1800, 900),
-      crate(560, 220), crate(560, 620), crate(900, 400), crate(900, 456), crate(1240, 180), crate(1240, 660),
-      [700, 40, 50, 120, 'pillar'], [1050, 740, 50, 120, 'pillar'],
-      [1700, 330, 60, 240, 'machine'],
-    ],
-    marks: [
-      { t: 'hazard', x: 230, y: 40, w: 14, h: 820 }, { t: 'hazard', x: 1546, y: 40, w: 14, h: 820 },
-      { t: 'arrow', x: 420, y: 450, a: 0, s: 60 }, { t: 'arrow', x: 1380, y: 450, a: 0, s: 60 },
-      { t: 'text', text: 'GO', x: 140, y: 450, s: 70 },
-    ],
-    spawns: [[130, 130], [130, 220], [130, 310], [130, 400], [130, 490], [130, 580], [130, 670], [130, 760]],
-  },
-};
 
 // ---- Hex Drop: tiles fall away shortly after you step on them ----
 export const HEX = { size: 46, rings: 6, crack: 0.495, spawnCrack: 0.99, foot: 0.5 }; // foot: support radius as a share of the body
@@ -183,3 +158,42 @@ export function mazeMap(seed) {
   if (mazeCache.size > 20) mazeCache.delete(mazeCache.keys().next().value);
   return map;
 }
+
+// ---- Spin Cycle: jump the low bar, stay down for the high one ----
+export const SPIN = {
+  r: 380, minR: 200, shrinkStart: 20, shrinkTime: 40, hub: 34,
+  len: 400, low: [1.1, 2.6], high: [-0.8, -1.7], ramp: 60, // bar speeds (rad/s) from start to after ramp seconds
+  knock: 540, highZ: 12, view: 450,
+};
+export const SPIN_VOID = { blocks: [], zones: [] };
+
+function barAngle([v0, v1], t) {
+  const R = SPIN.ramp;
+  if (t <= R) return v0 * t + ((v1 - v0) / (2 * R)) * t * t;
+  return v0 * R + ((v1 - v0) / 2) * R + v1 * (t - R);
+}
+export function spinBars(t) {
+  return { low: barAngle(SPIN.low, t), high: barAngle(SPIN.high, t) + Math.PI / 2 };
+}
+export function spinRadius(t) {
+  const k = Math.min(1, Math.max(0, (t - SPIN.shrinkStart) / SPIN.shrinkTime));
+  return SPIN.r + (SPIN.minR - SPIN.r) * k;
+}
+
+// ---- Floor is Lava: the floor floods in waves; stand on a stone or be in the air ----
+export const LAVA = { safe: 4, warn: 1.6, lava: 3, stoneR: 52, sinkEach: 2 };
+export const LAVA_MAP = {
+  name: 'Foundry',
+  w: 1400,
+  h: 900,
+  seam: 120,
+  zones: [[40, 40, 1320, 820, 'steel']],
+  blocks: [...border(1400, 900), [44, 44, 60, 60, 'tank'], [1296, 796, 60, 60, 'tank'], [1296, 44, 60, 60, 'tank'], [44, 796, 60, 60, 'tank']],
+  marks: [{ t: 'grate', x: 640, y: 60, w: 120, h: 40 }, { t: 'grate', x: 640, y: 800, w: 120, h: 40 }],
+  stones: [
+    [230, 220], [480, 170], [740, 230], [1000, 170], [1200, 260],
+    [300, 460], [560, 420], [840, 470], [1100, 440],
+    [200, 690], [450, 700], [700, 650], [960, 700], [1210, 650],
+  ],
+  spawns: [[230, 220], [480, 170], [740, 230], [1000, 170], [300, 460], [560, 420], [840, 470], [1100, 440]],
+};

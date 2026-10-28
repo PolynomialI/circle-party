@@ -319,13 +319,25 @@ export const SPIN = {
   r: 380, minR: 200, shrinkStart: 20, shrinkTime: 40, hub: 34,
   len: 400, low: [1.1, 2.6], high: [-0.8, -1.7], ramp: 60, // bar speeds (rad/s) from start to after ramp seconds
   knock: 540, highZ: 12, view: 450,
+  start: { slow: 3, ease: 2, mul: 0.25 }, // bars crawl at mul speed for slow seconds, then ease up to full
 };
 export const SPIN_VOID = { blocks: [], zones: [] };
 
 function barAngle([v0, v1], t) {
   const R = SPIN.ramp;
-  if (t <= R) return v0 * t + ((v1 - v0) / (2 * R)) * t * t;
-  return v0 * R + ((v1 - v0) / 2) * R + v1 * (t - R);
+  const a = (v1 - v0) / R;
+  const full = t <= R ? v0 * t + (a / 2) * t * t : v0 * R + ((v1 - v0) / 2) * R + v1 * (t - R);
+  // Take off the turning the slow start skipped.
+  const { slow: S, ease: E, mul } = SPIN.start;
+  const k = 1 - mul;
+  const t1 = Math.min(t, S);
+  let lost = k * (v0 * t1 + (a / 2) * t1 * t1);
+  if (t > S) {
+    const u = Math.min(t, S + E) - S;
+    const c = v0 + a * S;
+    lost += k * (c * u + (a / 2) * u * u - (c / (2 * E)) * u * u - (a / (3 * E)) * u ** 3);
+  }
+  return full - lost;
 }
 export function spinBars(t) {
   return { low: barAngle(SPIN.low, t), high: barAngle(SPIN.high, t) + Math.PI / 2 };

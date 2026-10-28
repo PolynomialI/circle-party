@@ -264,6 +264,7 @@ try {
   check(true, 'four players in the lobby (link and code joins)');
 
   await host.click('#game-pick button:has-text("Bomb Tag")');
+  await host.waitForFunction(() => window.__party.room.playlist.includes('bombtag'));
   await setPlaylist(host, ['bombtag']);
   await host.selectOption('#game-settings select >> nth=0', '3');
   check(!(await host.isDisabled('#start')) && !(await guests[0].isVisible('#start')), 'only the host can start, and can start straight away');

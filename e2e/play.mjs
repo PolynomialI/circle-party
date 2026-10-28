@@ -153,6 +153,18 @@ async function botLoop(page, stopAt) {
   await page.mouse.up();
 }
 
+// Make the room's playlist exactly these games.
+async function setPlaylist(host, ids) {
+  await host.evaluate((want) => {
+    for (const id of want) if (!window.__party.room.playlist.includes(id)) window.__party.socket.emit('pick', { game: id });
+  }, ids);
+  await host.waitForFunction((want) => want.every((id) => window.__party.room.playlist.includes(id)), ids);
+  await host.evaluate((want) => {
+    for (const id of window.__party.room.playlist) if (!want.includes(id)) window.__party.socket.emit('pick', { game: id });
+  }, ids);
+  await host.waitForFunction((want) => window.__party.room.playlist.join() === want.join(), ids);
+}
+
 async function report(pages) {
   for (const p of pages) {
     const m = await p.evaluate(() => window.__metrics);
@@ -179,10 +191,8 @@ async function tour(browser) {
     for (const g of guests) {
       await g.goto(`${BASE}/?room=${code}&lag=${LAG}`);
       await g.waitForSelector('#lobby:not(.hidden)');
-      await g.click('#ready');
     }
-    await host.evaluate((gid) => window.__party.socket.emit('pick', { game: gid }), id);
-    await host.waitForFunction((gid) => window.__party.room.game === gid, id);
+    await setPlaylist(host, [id]);
     await host.waitForFunction(() => !document.getElementById('start').disabled);
     for (const p of pages) await instrument(p);
     await host.click('#start');
@@ -254,11 +264,9 @@ try {
   check(true, 'four players in the lobby (link and code joins)');
 
   await host.click('#game-pick button:has-text("Bomb Tag")');
-  await host.waitForFunction(() => window.__party.room.game === 'bombtag');
+  await setPlaylist(host, ['bombtag']);
   await host.selectOption('#game-settings select >> nth=0', '3');
-  check(await host.isDisabled('#start'), 'start is blocked until everyone is ready');
-  for (const g of guests) await g.click('#ready');
-  await host.waitForFunction(() => !document.getElementById('start').disabled);
+  check(!(await host.isDisabled('#start')) && !(await guests[0].isVisible('#start')), 'only the host can start, and can start straight away');
   await host.screenshot({ path: path.join(OUT, 'lobby.png') });
   for (const p of pages) await instrument(p);
   await host.click('#start');
